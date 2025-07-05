@@ -40,7 +40,13 @@ export const useTransactions = () => {
 
       if (error) throw error;
       
-      setTransactions(data || []);
+      // Garantir que os tipos estão corretos ao definir o estado
+      const typedTransactions: Transaction[] = (data || []).map(transaction => ({
+        ...transaction,
+        tipo_transacao: transaction.tipo_transacao as 'entrada' | 'gasto'
+      }));
+      
+      setTransactions(typedTransactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -69,8 +75,13 @@ export const useTransactions = () => {
 
       if (error) throw error;
 
-      if (data) {
-        setTransactions(prev => [data[0], ...prev]);
+      if (data && data[0]) {
+        const newTransaction: Transaction = {
+          ...data[0],
+          tipo_transacao: data[0].tipo_transacao as 'entrada' | 'gasto'
+        };
+        
+        setTransactions(prev => [newTransaction, ...prev]);
         toast({
           title: "Sucesso",
           description: "Transação adicionada com sucesso!",
