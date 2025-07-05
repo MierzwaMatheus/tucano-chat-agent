@@ -1,4 +1,5 @@
 
+
 export async function analyzeUserMessage(message: string, geminiApiKey: string): Promise<any> {
   const prompt = `
 Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninhamento. Use EXATAMENTE estes nomes de campos:
@@ -66,7 +67,8 @@ Mensagem do usuário: "${message}"
 Retorne APENAS o objeto JSON, sem texto adicional.`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+    // URL corrigida da Gemini API
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +89,9 @@ Retorne APENAS o objeto JSON, sem texto adicional.`;
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -116,7 +120,8 @@ Analise esta mensagem financeira e extraia informações de transação. Retorne
 Mensagem: "${message}"`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+    // URL corrigida da Gemini API
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +142,9 @@ Mensagem: "${message}"`;
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API fallback error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API fallback error response:', errorText);
+      throw new Error(`Gemini API fallback error: ${response.status} - ${errorText}`);
     }
 
     return await response.json();
@@ -146,3 +153,4 @@ Mensagem: "${message}"`;
     throw error;
   }
 }
+
