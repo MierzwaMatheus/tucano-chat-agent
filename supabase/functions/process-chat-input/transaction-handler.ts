@@ -124,10 +124,13 @@ export async function viewTransactions(analysis: any, supabase: any, userId: str
       .select('*')
       .eq('user_id', userId);
 
+    // Apply filters
     if (analysis.filter === 'gastos') {
       query = query.eq('tipo_transacao', 'gasto');
     } else if (analysis.filter === 'receitas' || analysis.filter === 'entradas') {
       query = query.eq('tipo_transacao', 'entrada');
+    } else if (analysis.filter === 'recorrentes') {
+      query = query.eq('is_recorrente', true);
     }
 
     const { data: transacoes, error } = await query
@@ -150,7 +153,8 @@ export async function viewTransactions(analysis: any, supabase: any, userId: str
       
       transacoes.forEach((trans, index) => {
         const emoji = trans.tipo_transacao === 'entrada' ? '💚' : '❌';
-        responseMessage += `${index + 1}. ${emoji} **${trans.nome_gasto}**\n`;
+        const recorrente = trans.is_recorrente ? ' 🔄' : '';
+        responseMessage += `${index + 1}. ${emoji} **${trans.nome_gasto}**${recorrente}\n`;
         responseMessage += `   💰 R$ ${trans.valor_gasto.toFixed(2)}\n`;
         responseMessage += `   📂 ${trans.categoria}\n`;
         responseMessage += `   📅 ${new Date(trans.data_transacao).toLocaleDateString('pt-BR')}\n\n`;
