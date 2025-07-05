@@ -369,6 +369,72 @@ Mensagem do usuário: "${message}"`;
 - "salário", "trabalho" = "Salário"
 - "investimento", "juros" = "Investimentos"
 
+**Exemplos (Input do Usuário -> Output JSON):**
+
+**Exemplo 1 (Entrada simples):**
+Usuário: "Salário, entrada, 4500 reais"
+JSON:
+{
+  "nome_gasto": "Salário",
+  "valor_gasto": 4500.00,
+  "tipo_transacao": "entrada",
+  "categoria": "Salário",
+  "data_transacao": "${currentDate}",
+  "is_recorrente": false
+}
+
+**Exemplo 2 (Gasto simples):**
+Usuário: "Gastei 50 reais no mercado hoje."
+JSON:
+{
+  "nome_gasto": "Mercado",
+  "valor_gasto": 50.00,
+  "tipo_transacao": "gasto",
+  "categoria": "Mercado",
+  "data_transacao": "${currentDate}",
+  "is_recorrente": false
+}
+
+**Exemplo 3 (Gasto com nome explícito):**
+Usuário: "Comprei um livro de R$ 75,00 na Amazon."
+JSON:
+{
+  "nome_gasto": "Livro Amazon",
+  "valor_gasto": 75.00,
+  "tipo_transacao": "gasto",
+  "categoria": "Educação",
+  "data_transacao": "${currentDate}",
+  "is_recorrente": false
+}
+
+**Exemplo 4 (Receita recorrente):**
+Usuário: "Recebo 1500 de salário todo mês."
+JSON:
+{
+  "nome_gasto": "Salário Mensal",
+  "valor_gasto": 1500.00,
+  "tipo_transacao": "entrada",
+  "categoria": "Salário",
+  "data_transacao": "${currentDate}",
+  "is_recorrente": true,
+  "frequencia": "mensal",
+  "data_inicio": "${currentDate}"
+}
+
+**Exemplo 5 (Gasto recorrente com data específica):**
+Usuário: "Pago 100 de Netflix mensalmente, começando em 01/07/2025."
+JSON:
+{
+  "nome_gasto": "Netflix",
+  "valor_gasto": 100.00,
+  "tipo_transacao": "gasto",
+  "categoria": "Assinatura",
+  "data_transacao": "2025-07-01",
+  "is_recorrente": true,
+  "frequencia": "mensal",
+  "data_inicio": "2025-07-01"
+}
+
 Frase do usuário: "${message}"`;
 
         const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
@@ -395,7 +461,7 @@ Frase do usuário: "${message}"`;
               if (jsonMatch) {
                 const transactionData = JSON.parse(jsonMatch[0]);
                 
-                // Validação dos campos obrigatórios
+                // Validação dos campos obrigatórios usando nome_gasto e valor_gasto
                 if (transactionData.nome_gasto && transactionData.valor_gasto && transactionData.tipo_transacao && transactionData.categoria) {
                   const { error: transacaoError } = await supabase
                     .from('transacoes')
