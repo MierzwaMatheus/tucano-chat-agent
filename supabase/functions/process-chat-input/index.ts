@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -85,10 +86,11 @@ Exemplos de resposta:
 
 Mensagem do usuário: "${message}"`;
 
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-goog-api-key': geminiApiKey,
       },
       body: JSON.stringify({
         contents: [{
@@ -100,7 +102,8 @@ Mensagem do usuário: "${message}"`;
     });
 
     if (!geminiResponse.ok) {
-      console.error('Gemini API Error:', await geminiResponse.text());
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API Error:', errorText);
       throw new Error(`Erro na API Gemini: ${geminiResponse.statusText}`);
     }
 
@@ -313,10 +316,11 @@ JSON: { "nome_gasto": "salário", "valor_gasto": 1500.00, "tipo_transacao": "ent
 
 Frase do usuário: "${message}"`;
 
-        const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+        const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-goog-api-key': geminiApiKey,
           },
           body: JSON.stringify({
             contents: [{
