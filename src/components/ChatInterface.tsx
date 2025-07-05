@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Settings, User } from 'lucide-react';
+import { Send, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
-  id: number;
+  id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
@@ -13,15 +14,17 @@ interface Message {
 export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: 1,
-      text: "Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Como posso te ajudar hoje?",
+      id: '1',
+      text: 'Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Como posso ajudá-lo hoje?',
       isUser: false,
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+    },
   ]);
-  const [inputText, setInputText] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user, signOut } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -31,42 +34,43 @@ export const ChatInterface = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (inputText.trim() === '') return;
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  };
 
-    const newMessage: Message = {
-      id: messages.length + 1,
-      text: inputText,
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputValue]);
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue.trim(),
       isUser: true,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages([...messages, newMessage]);
-    setInputText('');
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
 
-    // Simular resposta do agente após um breve delay
+    // Simular resposta do assistente
     setTimeout(() => {
-      const responses = [
-        "Entendi! Vou analisar sua situação financeira e te dar algumas sugestões.",
-        "Ótima pergunta! Com base nos seus dados, posso te ajudar com isso.",
-        "Vou processar essas informações e te dar um relatório detalhado.",
-        "Perfeito! Deixe-me verificar algumas opções para você."
-      ];
-      
-      const agentResponse: Message = {
-        id: messages.length + 2,
-        text: responses[Math.floor(Math.random() * responses.length)],
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Entendi sua pergunta! Vou analisar suas finanças e te dar uma resposta personalizada em breve.',
         isUser: false,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
-
-      setMessages(prev => [...prev, agentResponse]);
+      setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false);
     }, 1000);
-
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -76,86 +80,97 @@ export const ChatInterface = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputText(e.target.value);
-    
-    // Auto-resize textarea
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-  };
-
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-tucano-50 via-white to-tucano-100">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="glass-strong sticky top-0 z-10 px-4 py-4 flex items-center justify-between animate-fade-in">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-tucano-500 to-tucano-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">T</span>
+      <header className="glass-strong sticky top-0 z-10 p-4 border-b border-white/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-tucano-500 to-tucano-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-bold text-lg">T</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Tucano Agent</h1>
+              <p className="text-sm text-gray-600">Seu assistente financeiro</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bitter font-bold text-xl text-gray-800">Tucano Agent</h1>
-            <p className="text-sm text-gray-600">Seu assistente financeiro</p>
+          
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <User className="h-4 w-4" />
+              <span>{user?.email?.split('@')[0]}</span>
+            </div>
+            <Button
+              onClick={signOut}
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-red-600"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <User className="h-5 w-5 text-gray-600" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Settings className="h-5 w-5 text-gray-600" />
-          </Button>
         </div>
       </header>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
-        {messages.map((message, index) => (
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-slide-in`}
-            style={{ animationDelay: `${index * 100}ms` }}
+            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}
           >
             <div
-              className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+              className={`max-w-xs sm:max-w-md px-4 py-3 rounded-2xl ${
                 message.isUser
-                  ? 'bg-gradient-to-r from-tucano-500 to-tucano-600 text-white ml-auto'
-                  : 'glass text-gray-800 mr-auto'
-              } shadow-lg`}
+                  ? 'bg-gradient-to-r from-tucano-500 to-tucano-600 text-white'
+                  : 'glass bg-white/70 text-gray-800'
+              }`}
             >
               <p className="text-sm leading-relaxed">{message.text}</p>
               <p className={`text-xs mt-1 ${message.isUser ? 'text-tucano-100' : 'text-gray-500'}`}>
-                {message.timestamp.toLocaleTimeString('pt-BR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
+                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
         ))}
+        
+        {isLoading && (
+          <div className="flex justify-start animate-fadeIn">
+            <div className="glass bg-white/70 text-gray-800 max-w-xs sm:max-w-md px-4 py-3 rounded-2xl">
+              <div className="flex items-center space-x-2">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+                <span className="text-sm text-gray-600">Tucano está pensando...</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
-      <div className="glass-strong sticky bottom-0 p-4 animate-fade-in">
+      <div className="glass-strong sticky bottom-0 p-4 border-t border-white/20">
         <div className="flex items-end space-x-3">
-          <div className="flex-1 relative">
+          <div className="flex-1">
             <textarea
               ref={textareaRef}
-              value={inputText}
-              onChange={handleInputChange}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Converse com o Tucano..."
-              className="w-full resize-none rounded-2xl px-4 py-3 pr-12 glass text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-tucano-500 focus:border-transparent min-h-[48px] max-h-32"
               rows={1}
+              className="w-full resize-none rounded-2xl border border-white/20 bg-white/50 backdrop-blur-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-tucano-500 focus:border-transparent placeholder-gray-500"
+              style={{ maxHeight: '120px' }}
             />
           </div>
-          
           <Button
             onClick={handleSendMessage}
-            className="bg-gradient-to-r from-tucano-500 to-tucano-600 hover:from-tucano-600 hover:to-tucano-700 text-white rounded-full p-3 shadow-lg transform transition-all duration-200 hover:scale-105"
-            disabled={inputText.trim() === ''}
+            disabled={!inputValue.trim() || isLoading}
+            className="bg-gradient-to-r from-tucano-500 to-tucano-600 hover:from-tucano-600 hover:to-tucano-700 text-white rounded-2xl p-3 transition-all duration-200 disabled:opacity-50"
           >
             <Send className="h-5 w-5" />
           </Button>

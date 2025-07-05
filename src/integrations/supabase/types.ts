@@ -33,6 +33,92 @@ export type Database = {
         }
         Relationships: []
       }
+      recorrencias: {
+        Row: {
+          categoria: string
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          frequencia: string
+          id: string
+          nome_recorrencia: string
+          tipo_transacao: string
+          user_id: string
+          valor_recorrencia: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio: string
+          frequencia: string
+          id?: string
+          nome_recorrencia: string
+          tipo_transacao: string
+          user_id: string
+          valor_recorrencia: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          frequencia?: string
+          id?: string
+          nome_recorrencia?: string
+          tipo_transacao?: string
+          user_id?: string
+          valor_recorrencia?: number
+        }
+        Relationships: []
+      }
+      transacoes: {
+        Row: {
+          categoria: string
+          created_at: string
+          data_transacao: string
+          id: string
+          is_recorrente: boolean | null
+          nome_gasto: string
+          recorrencia_id: string | null
+          tipo_transacao: string
+          user_id: string
+          valor_gasto: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          data_transacao: string
+          id?: string
+          is_recorrente?: boolean | null
+          nome_gasto: string
+          recorrencia_id?: string | null
+          tipo_transacao: string
+          user_id: string
+          valor_gasto: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data_transacao?: string
+          id?: string
+          is_recorrente?: boolean | null
+          nome_gasto?: string
+          recorrencia_id?: string | null
+          tipo_transacao?: string
+          user_id?: string
+          valor_gasto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transacoes_recorrencia_id_fkey"
+            columns: ["recorrencia_id"]
+            isOneToOne: false
+            referencedRelation: "recorrencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transacoes_financeiras: {
         Row: {
           categoria: string | null
