@@ -5,25 +5,12 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useTransactions } from '@/hooks/useTransactions';
-
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+import { useChatMemory } from '@/hooks/useChatMemory';
 
 export const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Posso ajudá-lo a:\n\n💰 **Registrar transações:** "Gastei 50 reais no mercado" ou "Recebo 3000 de salário mensalmente"\n\n📊 **Ver suas finanças:** "Mostrar meus gastos", "Ver receitas deste mês", "Quais minhas transações recorrentes?"\n\n✏️ **Editar transações:** "Alterar o valor do mercado para 60 reais"\n\n🗑️ **Excluir transações:** "Remover o gasto do cinema"\n\nComo posso ajudá-lo hoje?',
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const { messages, isLoading: loadingMessages, saveMessage, addMessages } = useChatMemory();
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
@@ -49,20 +36,25 @@ export const ChatInterface = () => {
     adjustTextareaHeight();
   }, [inputValue]);
 
+  // Mensagem de boas-vindas inicial
+  const welcomeMessage = `Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Posso ajudá-lo a:
+
+💰 **Registrar transações:** "Gastei 50 reais no mercado" ou "Recebo 3000 de salário mensalmente"
+
+📊 **Ver suas finanças:** "Mostrar meus gastos", "Ver receitas deste mês", "Quais minhas transações recorrentes?"
+
+✏️ **Editar transações:** "Alterar o valor do mercado para 60 reais"
+
+🗑️ **Excluir transações:** "Remover o gasto do cinema"
+
+Como posso ajudá-lo hoje?`;
+
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isProcessing) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue.trim(),
-      isUser: true,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
     const currentInput = inputValue.trim();
     setInputValue('');
-    setIsLoading(true);
+    setIsProcessing(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('process-chat-input', {
@@ -73,14 +65,13 @@ export const ChatInterface = () => {
         throw error;
       }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: data.message || 'Mensagem processada com sucesso!',
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      const assistantResponse = data.message || 'Mensagem processada com sucesso!';
+      
+      // Adicionar mensagens localmente para feedback imediato
+      addMessages(currentInput, assistantResponse);
+      
+      // Salvar no banco de dados
+      await saveMessage(currentInput, assistantResponse);
       
       // Atualizar lista de transações após qualquer operação
       setTimeout(() => {
@@ -89,15 +80,12 @@ export const ChatInterface = () => {
 
     } catch (error) {
       console.error('Erro ao processar mensagem:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente ou seja mais específico sobre valores e tipos de transação.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      const errorMessage = 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente ou seja mais específico sobre valores e tipos de transação.';
+      
+      addMessages(currentInput, errorMessage);
+      await saveMessage(currentInput, errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -142,27 +130,51 @@ export const ChatInterface = () => {
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}
-          >
-            <div
-              className={`max-w-xs sm:max-w-md px-4 py-3 rounded-2xl ${
-                message.isUser
-                  ? 'bg-gradient-to-r from-tucano-500 to-tucano-600 text-white'
-                  : 'glass bg-white/70 text-gray-800'
-              }`}
-            >
-              <p className="text-sm leading-relaxed whitespace-pre-line">{message.text}</p>
-              <p className={`text-xs mt-1 ${message.isUser ? 'text-tucano-100' : 'text-gray-500'}`}>
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
+        {loadingMessages ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
             </div>
           </div>
-        ))}
+        ) : (
+          <>
+            {/* Mensagem de boas-vindas se não houver mensagens */}
+            {messages.length === 0 && (
+              <div className="flex justify-start animate-fadeIn">
+                <div className="glass bg-white/70 text-gray-800 max-w-xs sm:max-w-md px-4 py-3 rounded-2xl">
+                  <p className="text-sm leading-relaxed whitespace-pre-line">{welcomeMessage}</p>
+                  <p className="text-xs mt-1 text-gray-500">
+                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+              >
+                <div
+                  className={`max-w-xs sm:max-w-md px-4 py-3 rounded-2xl ${
+                    message.isUser
+                      ? 'bg-gradient-to-r from-tucano-500 to-tucano-600 text-white'
+                      : 'glass bg-white/70 text-gray-800'
+                  }`}
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-line">{message.text}</p>
+                  <p className={`text-xs mt-1 ${message.isUser ? 'text-tucano-100' : 'text-gray-500'}`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
         
-        {isLoading && (
+        {isProcessing && (
           <div className="flex justify-start animate-fadeIn">
             <div className="glass bg-white/70 text-gray-800 max-w-xs sm:max-w-md px-4 py-3 rounded-2xl">
               <div className="flex items-center space-x-2">
@@ -197,7 +209,7 @@ export const ChatInterface = () => {
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isLoading}
+            disabled={!inputValue.trim() || isProcessing}
             className="bg-gradient-to-r from-tucano-500 to-tucano-600 hover:from-tucano-600 hover:to-tucano-700 text-white rounded-2xl p-3 transition-all duration-200 disabled:opacity-50"
           >
             <Send className="h-5 w-5" />
