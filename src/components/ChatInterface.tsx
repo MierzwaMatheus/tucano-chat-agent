@@ -142,7 +142,7 @@ Como posso ajudá-lo hoje?`;
                   className={`max-w-[80%] p-3 rounded-2xl ${
                     msg.isUser
                       ? "bg-tucano-600 text-white rounded-tr-none"
-                      : "bg-tucano-700/60 text-tucano-100 rounded-tl-none border border-tucano-600/50"
+                      : "bg-card text-tucano-100 rounded-tl-none border border-tucano-600/50"
                   } animate-fade-in`}
                 >
                   <p className="text-sm whitespace-pre-line">{msg.text}</p>
