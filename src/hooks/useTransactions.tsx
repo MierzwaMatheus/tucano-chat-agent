@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -49,17 +48,49 @@ export interface ChartData {
     date: string;
     saldo: number;
   }>;
+  categoryTrend: Array<{
+    date: string;
+    [key: string]: number | string;
+  }>;
+  dailyTransactions: Array<{
+    dia: number;
+    entradas: number;
+    saidas: number;
+  }>;
+  recurringTransactions: Array<{
+    nome: string;
+    frequencia: number;
+    valor: number;
+  }>;
 }
 
 const categoryColors = {
-  'Alimentação': '#ff6b6b',
-  'Transporte': '#4ecdc4',
-  'Saúde': '#45b7d1',
-  'Educação': '#96ceb4',
-  'Lazer': '#feca57',
-  'Casa': '#ff9ff3',
-  'Trabalho': '#54a0ff',
-  'Outros': '#5f27cd'
+  'Salário': '#8b5cf6', // tucano-500
+  'Freelancer': '#7c3aed', // tucano-600
+  'Venda': '#6d28d9', // tucano-700
+  'Presentes': '#5b21b6', // tucano-800
+  'Casa': '#a78bfa', // tucano-400
+  'Comida': '#c4b5fd', // tucano-300
+  'Assinatura': '#ddd6fe', // tucano-200
+  'Diversão': '#ede8ff', // tucano-100
+  'Outros': '#6B7280', // cinza neutro
+};
+
+// Cores do projeto para gráficos
+const projectColors = {
+  primary: '#8b5cf6', // tucano-500
+  secondary: '#7c3aed', // tucano-600
+  accent1: '#6d28d9', // tucano-700
+  accent2: '#5b21b6', // tucano-800
+  light1: '#a78bfa', // tucano-400
+  light2: '#c4b5fd', // tucano-300
+  light3: '#ddd6fe', // tucano-200
+  neutral: '#6B7280', // cinza neutro
+  background: 'rgba(17, 24, 39, 0.95)', // fundo escuro
+  grid: 'rgba(255,255,255,0.1)', // grade dos gráficos
+  text: '#E5E7EB', // texto claro
+  success: '#34D399', // verde para valores positivos
+  danger: '#EF4444', // vermelho para valores negativos
 };
 
 export const useTransactions = () => {
@@ -291,7 +322,7 @@ export const useTransactions = () => {
     const categoryDistribution = Object.entries(categoryTotals).map(([categoria, valor]) => ({
       categoria,
       valor,
-      color: categoryColors[categoria as keyof typeof categoryColors] || categoryColors.Outros
+      color: categoryColors[categoria as keyof typeof categoryColors] || projectColors.neutral,
     }));
 
     // Balance evolution (last 12 months)
@@ -337,10 +368,74 @@ export const useTransactions = () => {
       });
     }
 
+    // Prepare data for category trend chart
+    const categoryTrend = transactions.reduce((acc, transaction) => {
+      const date = new Date(transaction.data_transacao).toISOString().split('T')[0];
+      const valor = transaction.tipo_transacao === 'gasto' ? transaction.valor_gasto : 0;
+      
+      const existingDate = acc.find(item => item.date === date);
+      if (existingDate) {
+        existingDate[transaction.categoria] = (existingDate[transaction.categoria] || 0) + valor;
+      } else {
+        acc.push({
+          date,
+          [transaction.categoria]: valor,
+        });
+      }
+      return acc;
+    }, [] as Array<{ date: string; [key: string]: number | string }>)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Prepare data for daily transactions chart
+    const dailyTransactions = transactions.reduce((acc, transaction) => {
+      const dia = new Date(transaction.data_transacao).getDate();
+      const valor = Number(transaction.valor_gasto);
+      
+      const existingDay = acc.find(item => item.dia === dia);
+      if (existingDay) {
+        if (transaction.tipo_transacao === 'entrada') {
+          existingDay.entradas += valor;
+        } else {
+          existingDay.saidas += valor;
+        }
+      } else {
+        acc.push({
+          dia,
+          entradas: transaction.tipo_transacao === 'entrada' ? valor : 0,
+          saidas: transaction.tipo_transacao === 'gasto' ? valor : 0,
+        });
+      }
+      return acc;
+    }, [] as Array<{ dia: number; entradas: number; saidas: number }>)
+    .sort((a, b) => a.dia - b.dia);
+
+    // Prepare data for recurring transactions chart
+    const recurringTransactions = transactions
+      .filter(t => t.is_recorrente)
+      .reduce((acc, transaction) => {
+        const existingTransaction = acc.find(item => item.nome === transaction.nome_gasto);
+        if (existingTransaction) {
+          existingTransaction.frequencia += 1;
+          existingTransaction.valor = Math.max(existingTransaction.valor, transaction.valor_gasto);
+        } else {
+          acc.push({
+            nome: transaction.nome_gasto,
+            frequencia: 1,
+            valor: transaction.valor_gasto,
+          });
+        }
+        return acc;
+      }, [] as Array<{ nome: string; frequencia: number; valor: number }>)
+      .sort((a, b) => b.frequencia - a.frequencia)
+      .slice(0, 10); // Top 10 recurring transactions
+
     return {
       monthlyComparison,
       categoryDistribution,
-      balanceEvolution
+      balanceEvolution,
+      categoryTrend,
+      dailyTransactions,
+      recurringTransactions,
     };
   };
 
