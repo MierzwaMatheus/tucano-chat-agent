@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from './types.ts';
 import { normalizeTransactionData } from './data-normalizer.ts';
 import { analyzeUserMessage } from './gemini-service.ts';
-import { createTransaction, viewTransactions, handleFallbackTransaction } from './transaction-handler.ts';
+import { createTransaction, editTransaction, viewTransactions, handleFallbackTransaction } from './transaction-handler.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -100,11 +100,7 @@ serve(async (req) => {
         break;
 
       case 'edit':
-        responseMessage = `🔧 Para editar uma transação, preciso que você seja mais específico. Por exemplo:\n\n`;
-        responseMessage += `• "Alterar o valor da última compra no mercado para R$ 60"\n`;
-        responseMessage += `• "Mudar a categoria do gasto de ontem para Lazer"\n`;
-        responseMessage += `• "Atualizar minha recorrência de Netflix para R$ 25"\n\n`;
-        responseMessage += `Ou me diga o nome exato da transação que deseja editar.`;
+        responseMessage = await editTransaction(analysis, supabase, user.id);
         break;
 
       case 'delete':

@@ -1,4 +1,3 @@
-
 import { normalizeTransactionData } from './data-normalizer.ts';
 
 export async function createTransaction(analysis: any, supabase: any, userId: string): Promise<string> {
@@ -92,6 +91,149 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
 📝 ${analysis.nome_gasto} - ${analysis.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(analysis.valor_gasto).toFixed(2)}
 📂 Categoria: ${analysis.categoria}
 📅 Data: ${new Date(analysis.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
+  }
+}
+
+export async function editTransaction(analysis: any, supabase: any, userId: string): Promise<string> {
+  console.log('Iniciando edição de transação:', JSON.stringify(analysis, null, 2));
+
+  if (!analysis.nome_gasto || analysis.nome_gasto.trim() === '') {
+    throw new Error("Para editar uma transação, preciso saber qual transação você quer alterar. Tente ser mais específico sobre o nome da transação.");
+  }
+
+  try {
+    // Buscar a transação mais recente com o nome especificado
+    const { data: transacoes, error: searchError } = await supabase
+      .from('transacoes')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('nome_gasto', analysis.nome_gasto)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (searchError) {
+      console.error('Erro ao buscar transação:', searchError);
+      throw new Error('Erro ao buscar a transação para edição');
+    }
+
+    if (!transacoes || transacoes.length === 0) {
+      return `❌ Não encontrei nenhuma transação com o nome "${analysis.nome_gasto}". 
+
+Tente ser mais específico ou verifique se o nome está correto. Você pode usar comandos como:
+• "Mostrar minhas transações" para ver as transações disponíveis
+• "Alterar a categoria da compra no mercado para Alimentação"`;
+    }
+
+    const transacao = transacoes[0];
+    console.log('Transação encontrada:', JSON.stringify(transacao, null, 2));
+
+    // Preparar dados para atualização (apenas campos que foram fornecidos)
+    const updateData: any = {};
+    
+    if (analysis.valor_gasto && !isNaN(Number(analysis.valor_gasto))) {
+      updateData.valor_gasto = Number(analysis.valor_gasto);
+    }
+    
+    if (analysis.categoria && analysis.categoria.trim() !== '') {
+      updateData.categoria = analysis.categoria;
+    }
+    
+    if (analysis.tipo_transacao && (analysis.tipo_transacao === 'entrada' || analysis.tipo_transacao === 'gasto')) {
+      updateData.tipo_transacao = analysis.tipo_transacao;
+    }
+    
+    if (analysis.data_transacao) {
+      updateData.data_transacao = analysis.data_transacao;
+    }
+
+    // Verificar se há algo para atualizar
+    if (Object.keys(updateData).length === 0) {
+      return `❓ Não consegui identificar o que você quer alterar na transação "${analysis.nome_gasto}". 
+
+Tente ser mais específico, por exemplo:
+• "Alterar o valor de ${analysis.nome_gasto} para R$ 50"
+• "Mudar a categoria de ${analysis.nome_gasto} para Lazer"`;
+    }
+
+    console.log('Dados para atualização:', JSON.stringify(updateData, null, 2));
+
+    // Realizar a atualização
+    const { data: updatedData, error: updateError } = await supabase
+      .from('transacoes')
+      .update(updateData)
+      .eq('id', transacao.id)
+      .eq('user_id', userId)
+      .select();
+
+    if (updateError) {
+      console.error('Erro ao atualizar transação:', updateError);
+      throw new Error('Erro ao atualizar a transação');
+    }
+
+    if (!updatedData || updatedData.length === 0) {
+      throw new Error('Não foi possível atualizar a transação');
+    }
+
+    const transacaoAtualizada = updatedData[0];
+
+    // Se a transação for recorrente, atualizar também a recorrência
+    if (transacao.is_recorrente && transacao.recorrencia_id) {
+      const recorrenciaUpdateData: any = {};
+      
+      if (updateData.valor_gasto) {
+        recorrenciaUpdateData.valor_recorrencia = updateData.valor_gasto;
+      }
+      if (updateData.categoria) {
+        recorrenciaUpdateData.categoria = updateData.categoria;
+      }
+      if (updateData.tipo_transacao) {
+        recorrenciaUpdateData.tipo_transacao = updateData.tipo_transacao;
+      }
+
+      if (Object.keys(recorrenciaUpdateData).length > 0) {
+        const { error: recorrenciaError } = await supabase
+          .from('recorrencias')
+          .update(recorrenciaUpdateData)
+          .eq('id', transacao.recorrencia_id)
+          .eq('user_id', userId);
+
+        if (recorrenciaError) {
+          console.error('Erro ao atualizar recorrência:', recorrenciaError);
+          // Não vamos falhar a operação por causa disso, apenas loggar
+        }
+      }
+    }
+
+    // Construir mensagem de sucesso detalhada
+    let mensagem = `✅ Transação "${transacao.nome_gasto}" atualizada com sucesso!\n\n`;
+    
+    mensagem += `📊 **Alterações realizadas:**\n`;
+    
+    if (updateData.valor_gasto) {
+      mensagem += `💰 Valor: R$ ${transacao.valor_gasto.toFixed(2)} → R$ ${transacaoAtualizada.valor_gasto.toFixed(2)}\n`;
+    }
+    
+    if (updateData.categoria) {
+      mensagem += `📂 Categoria: ${transacao.categoria} → ${transacaoAtualizada.categoria}\n`;
+    }
+    
+    if (updateData.tipo_transacao) {
+      mensagem += `📈 Tipo: ${transacao.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} → ${transacaoAtualizada.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'}\n`;
+    }
+    
+    if (updateData.data_transacao) {
+      mensagem += `📅 Data: ${new Date(transacao.data_transacao).toLocaleDateString('pt-BR')} → ${new Date(transacaoAtualizada.data_transacao).toLocaleDateString('pt-BR')}\n`;
+    }
+
+    if (transacao.is_recorrente) {
+      mensagem += `\n🔄 Esta transação é recorrente - as alterações também foram aplicadas à recorrência.`;
+    }
+
+    return mensagem;
+
+  } catch (error) {
+    console.error('Erro na edição de transação:', error);
+    throw error;
   }
 }
 

@@ -62,6 +62,34 @@ Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninham
   "data_inicio": "${new Date().toISOString().split('T')[0]}"
 }
 
+5. "Alterar o valor da gasolina para 80 reais"
+{
+  "action": "edit",
+  "nome_gasto": "Gasolina",
+  "valor_gasto": 80
+}
+
+6. "Mudar a categoria do mercado para Alimentação"
+{
+  "action": "edit",
+  "nome_gasto": "Mercado",
+  "categoria": "Alimentação"
+}
+
+7. "Editar a compra no supermercado para R$ 120 e categoria Alimentação"
+{
+  "action": "edit",
+  "nome_gasto": "Supermercado",
+  "valor_gasto": 120,
+  "categoria": "Alimentação"
+}
+
+**IMPORTANTE para edições:** 
+- Quando detectar intenção de edição/alteração/mudança, sempre use "action": "edit"
+- Para edições, inclua apenas os campos que devem ser alterados
+- O nome_gasto é obrigatório para identificar qual transação editar
+- Palavras-chave de edição: "alterar", "mudar", "editar", "atualizar", "modificar", "trocar"
+
 Mensagem do usuário: "${message}"
 
 Retorne APENAS o objeto JSON, sem texto adicional.`;
@@ -153,4 +181,3 @@ Mensagem: "${message}"`;
     throw error;
   }
 }
-
