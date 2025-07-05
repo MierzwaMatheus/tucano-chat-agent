@@ -1,13 +1,16 @@
-
 import React, { useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BentoGrid } from '@/components/ui/bento-grid';
 import { useTransactions } from '@/hooks/useTransactions';
 import { AddTransactionModal } from './AddTransactionModal';
 import { MonthlyComparisonChart } from './charts/MonthlyComparisonChart';
 import { CategoryDistributionChart } from './charts/CategoryDistributionChart';
 import { BalanceEvolutionChart } from './charts/BalanceEvolutionChart';
+import { CategoryTrendChart } from './charts/CategoryTrendChart';
+import { DailyTransactionChart } from './charts/DailyTransactionChart';
+import { RecurringTransactionsChart } from './charts/RecurringTransactionsChart';
 
 export const Dashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -44,64 +47,67 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gray-950">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Dashboard Financeiro</h2>
+        <h2 className="text-2xl font-bold text-white">Dashboard Financeiro</h2>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass border-white/20 backdrop-blur-lg">
+      {/* Bento Grid Summary Cards */}
+      <BentoGrid className="lg:grid-rows-2 auto-rows-[16rem] md:auto-rows-[18rem]">
+        {/* Saldo Atual - Card principal */}
+        <Card className="lg:row-start-1 lg:row-end-3 lg:col-start-1 lg:col-end-3 glass border-white/20 backdrop-blur-lg bg-gray-900/90">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-lg font-semibold text-white">
               Saldo Atual
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-gray-400" />
+            <DollarSign className="h-8 w-8 text-gray-300" />
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <CardContent className="flex flex-col justify-center h-full">
+            <div className={`text-4xl md:text-5xl font-bold mb-2 ${saldoAtual >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {formatCurrency(saldoAtual)}
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm text-gray-300">
               Inclui transações recorrentes
             </p>
           </CardContent>
         </Card>
 
-        <Card className="glass border-white/20 backdrop-blur-lg">
+        {/* Total de Entradas */}
+        <Card className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 glass border-white/20 backdrop-blur-lg bg-gray-900/90">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-white">
               Total de Entradas (Mês)
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-5 w-5 text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-400">
               {formatCurrency(totalEntradas)}
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-300">
               Receitas + recorrências do mês
             </p>
           </CardContent>
         </Card>
 
-        <Card className="glass border-white/20 backdrop-blur-lg">
+        {/* Total de Gastos */}
+        <Card className="lg:col-start-3 lg:col-end-4 lg:row-start-2 lg:row-end-3 glass border-white/20 backdrop-blur-lg bg-gray-900/90">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-white">
               Total de Gastos (Mês)
             </CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-500" />
+            <TrendingDown className="h-5 w-5 text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-red-400">
               {formatCurrency(totalGastos)}
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-300">
               Despesas + recorrências do mês
             </p>
           </CardContent>
         </Card>
-      </div>
+      </BentoGrid>
 
       {/* Charts Section */}
       <div className="space-y-6">
@@ -113,6 +119,15 @@ export const Dashboard = () => {
           <CategoryDistributionChart data={chartData.categoryDistribution} />
           <BalanceEvolutionChart data={chartData.balanceEvolution} />
         </div>
+
+        {/* New Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CategoryTrendChart data={chartData.categoryTrend} />
+          <DailyTransactionChart data={chartData.dailyTransactions} />
+        </div>
+
+        {/* Recurring Transactions Chart */}
+        <RecurringTransactionsChart data={chartData.recurringTransactions} />
       </div>
 
       {/* Floating Action Button */}

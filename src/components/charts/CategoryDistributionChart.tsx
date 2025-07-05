@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +19,7 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
     }).format(value);
   };
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, categoria }: any) => {
     if (percent < 0.05) return null; // Don't show labels for slices smaller than 5%
     
     const RADIAN = Math.PI / 180;
@@ -43,10 +42,24 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
     );
   };
 
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-gray-900/95 border border-white/20 rounded-lg p-2 text-white">
+          <p className="font-medium">{data.categoria}</p>
+          <p className="text-sm">{formatCurrency(data.valor)}</p>
+          <p className="text-sm text-gray-300">{`${(data.percent * 100).toFixed(1)}%`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <Card className="glass border-white/20 backdrop-blur-lg">
+    <Card className="glass border-white/20 backdrop-blur-lg bg-gray-900/90">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold text-gray-800">
+        <CardTitle className="text-lg font-semibold text-white">
           Gastos por Categoria (Mês Atual)
         </CardTitle>
       </CardHeader>
@@ -62,23 +75,16 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
               outerRadius={100}
               fill="#8884d8"
               dataKey="valor"
+              nameKey="categoria"
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '8px',
-                backdropFilter: 'blur(10px)',
-              }}
-              formatter={(value: number) => [formatCurrency(value), 'Valor']}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Legend 
-              wrapperStyle={{ fontSize: '12px' }}
-              formatter={(value) => <span style={{ color: '#374151' }}>{value}</span>}
+              formatter={(value) => <span className="text-white">{value}</span>}
+              wrapperStyle={{ fontSize: '12px', color: '#fff' }}
             />
           </PieChart>
         </ResponsiveContainer>

@@ -1,16 +1,16 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-interface MonthlyComparisonChartProps {
+interface RecurringTransactionsChartProps {
   data: Array<{
-    month: string;
-    entradas: number;
-    gastos: number;
+    nome: string;
+    frequencia: number;
+    valor: number;
   }>;
 }
 
-export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ data }) => {
+export const RecurringTransactionsChart: React.FC<RecurringTransactionsChartProps> = ({ data }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -23,22 +23,29 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ 
     <Card className="glass border-white/20 backdrop-blur-lg bg-gray-900/90">
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-white">
-          Entradas vs Gastos (Últimos 12 Meses)
+          Transações Recorrentes
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <BarChart 
+            data={data} 
+            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            layout="vertical"
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
             <XAxis 
-              dataKey="month" 
-              stroke="#e5e7eb"
-              fontSize={12}
-            />
-            <YAxis 
+              type="number"
               stroke="#e5e7eb"
               fontSize={12}
               tickFormatter={formatCurrency}
+            />
+            <YAxis 
+              type="category"
+              dataKey="nome"
+              stroke="#e5e7eb"
+              fontSize={12}
+              width={120}
             />
             <Tooltip
               contentStyle={{
@@ -47,27 +54,20 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ 
                 borderRadius: '8px',
                 color: '#fff',
               }}
-              formatter={(value: number) => [formatCurrency(value), '']}
+              formatter={(value: number, name) => {
+                if (name === 'valor') return [formatCurrency(value), 'Valor'];
+                return [value, 'Frequência'];
+              }}
               labelStyle={{ color: '#fff' }}
             />
-            <Legend 
-              wrapperStyle={{ color: '#fff' }}
-            />
             <Bar 
-              dataKey="entradas" 
-              fill="#8b5cf6" 
-              name="Entradas"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar 
-              dataKey="gastos" 
-              fill="#6d28d9" 
-              name="Gastos"
-              radius={[4, 4, 0, 0]}
+              dataKey="valor" 
+              fill="#8b5cf6"
+              radius={[0, 4, 4, 0]}
             />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
   );
-};
+}; 

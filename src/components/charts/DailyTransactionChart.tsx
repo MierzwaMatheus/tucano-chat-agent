@@ -1,16 +1,16 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-interface MonthlyComparisonChartProps {
+interface DailyTransactionChartProps {
   data: Array<{
-    month: string;
+    dia: number;
     entradas: number;
-    gastos: number;
+    saidas: number;
   }>;
 }
 
-export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ data }) => {
+export const DailyTransactionChart: React.FC<DailyTransactionChartProps> = ({ data }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -23,7 +23,7 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ 
     <Card className="glass border-white/20 backdrop-blur-lg bg-gray-900/90">
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-white">
-          Entradas vs Gastos (Últimos 12 Meses)
+          Movimentações por Dia do Mês
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -31,7 +31,7 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ 
           <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
             <XAxis 
-              dataKey="month" 
+              dataKey="dia" 
               stroke="#e5e7eb"
               fontSize={12}
             />
@@ -60,9 +60,9 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ 
               radius={[4, 4, 0, 0]}
             />
             <Bar 
-              dataKey="gastos" 
+              dataKey="saidas" 
               fill="#6d28d9" 
-              name="Gastos"
+              name="Saídas"
               radius={[4, 4, 0, 0]}
             />
           </BarChart>
@@ -70,4 +70,4 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({ 
       </CardContent>
     </Card>
   );
-};
+}; 
