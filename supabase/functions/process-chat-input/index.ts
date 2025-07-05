@@ -341,17 +341,33 @@ Mensagem do usuário: "${message}"`;
 
       default:
         // Se não foi possível identificar a ação, tentar processar como criação de transação
-        const createPrompt = `Analise a seguinte frase e extraia o valor, tipo (entrada/gasto), categoria, uma breve descrição, data da transação, e se é uma transação recorrente. Se for recorrente, identifique a frequência (diária, semanal, mensal, anual) e a data de início/fim (se mencionada). Responda APENAS em formato JSON válido, sem texto adicional.
+        const createPrompt = `Analise a seguinte frase do usuário e extraia as informações financeiras. Responda **APENAS** com um objeto JSON.
 
-Categorias válidas para Gastos: Mercado, Comida, Casa, Lazer, Transporte, Diversão, Educação, Investimento, Assinatura.
-Categorias válidas para Receitas: Salário, Adiantamento, Freelancer, Investimentos, Venda.
+**Campos esperados no JSON:**
+- nome_gasto: (string) Uma breve descrição ou nome da transação. Se a frase não fornecer um nome explícito, use a categoria como nome.
+- valor_gasto: (number) O valor numérico da transação.
+- tipo_transacao: (string) 'entrada' ou 'gasto'.
+- categoria: (string) A categoria mais apropriada da lista fornecida.
+- data_transacao: (string, formato YYYY-MM-DD) A data da transação. Se não especificada, use a data atual.
+- is_recorrente: (boolean) true se a transação for recorrente, false caso contrário.
+- frequencia: (string, opcional) 'diaria', 'semanal', 'mensal', 'anual'. Apenas se is_recorrente for true.
+- data_inicio: (string, formato YYYY-MM-DD, opcional) Data de início da recorrência. Se não especificada, use a data atual. Apenas se is_recorrente for true.
+- data_fim: (string, formato YYYY-MM-DD, opcional) Data de fim da recorrência. Apenas se is_recorrente for true.
 
-Exemplos de entrada e saída JSON:
-Usuário: "Gastei 50 reais no mercado hoje."
-JSON: { "nome_gasto": "mercado", "valor_gasto": 50.00, "tipo_transacao": "gasto", "categoria": "Mercado", "data_transacao": "${currentDate}", "is_recorrente": false }
+**Categorias Válidas:**
+- **Gastos:** Mercado, Comida, Casa, Lazer, Transporte, Diversão, Educação, Investimento, Assinatura, Outros
+- **Receitas:** Salário, Adiantamento, Freelancer, Investimentos, Venda, Outros
 
-Usuário: "Recebo 1500 de salário todo mês."
-JSON: { "nome_gasto": "salário", "valor_gasto": 1500.00, "tipo_transacao": "entrada", "categoria": "Salário", "data_transacao": "${currentDate}", "is_recorrente": true, "frequencia": "mensal", "data_inicio": "${currentDate}", "data_fim": null }
+**Regras de Classificação Automática:**
+- "mercado", "supermercado" = "Mercado"
+- "uber", "taxi", "ônibus" = "Transporte"
+- "almoço", "jantar", "restaurante" = "Comida"
+- "cinema", "show" = "Diversão"
+- "netflix", "spotify" = "Assinatura"
+- "curso", "livro" = "Educação"
+- "freelance", "freela" = "Freelancer"
+- "salário", "trabalho" = "Salário"
+- "investimento", "juros" = "Investimentos"
 
 Frase do usuário: "${message}"`;
 
