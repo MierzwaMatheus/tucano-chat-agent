@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useTransactions } from '@/hooks/useTransactions';
 
 interface Message {
   id: string;
@@ -15,7 +17,7 @@ export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Como posso ajudá-lo hoje?',
+      text: 'Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Conte-me sobre seus gastos ou receitas e eu vou registrar automaticamente para você! Por exemplo: "Gastei 50 reais no mercado hoje" ou "Recebo 3000 de salário todo mês".',
       isUser: false,
       timestamp: new Date(),
     },
@@ -25,6 +27,7 @@ export const ChatInterface = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
+  const { refetch } = useTransactions();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,20 +60,44 @@ export const ChatInterface = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
 
-    // Simular resposta do assistente
-    setTimeout(() => {
+    try {
+      // Chamar a Edge Function
+      const { data, error } = await supabase.functions.invoke('process-chat-input', {
+        body: { message: currentInput }
+      });
+
+      if (error) {
+        throw error;
+      }
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Entendi sua pergunta! Vou analisar suas finanças e te dar uma resposta personalizada em breve.',
+        text: data.message || 'Mensagem processada com sucesso!',
         isUser: false,
         timestamp: new Date(),
       };
+
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Atualizar lista de transações após processar
+      refetch();
+
+    } catch (error) {
+      console.error('Erro ao processar mensagem:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente ou seja mais específico sobre valores e tipos de transação.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -126,7 +153,7 @@ export const ChatInterface = () => {
                   : 'glass bg-white/70 text-gray-800'
               }`}
             >
-              <p className="text-sm leading-relaxed">{message.text}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-line">{message.text}</p>
               <p className={`text-xs mt-1 ${message.isUser ? 'text-tucano-100' : 'text-gray-500'}`}>
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -143,7 +170,7 @@ export const ChatInterface = () => {
                   <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                   <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
-                <span className="text-sm text-gray-600">Tucano está pensando...</span>
+                <span className="text-sm text-gray-600">Processando sua transação...</span>
               </div>
             </div>
           </div>
@@ -161,7 +188,7 @@ export const ChatInterface = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Converse com o Tucano..."
+              placeholder="Exemplo: 'Gastei 25 reais no almoço' ou 'Recebo 5000 de salário mensalmente'"
               rows={1}
               className="w-full resize-none rounded-2xl border border-white/20 bg-white/50 backdrop-blur-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-tucano-500 focus:border-transparent placeholder-gray-500"
               style={{ maxHeight: '120px' }}
