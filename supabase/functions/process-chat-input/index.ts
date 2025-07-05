@@ -28,6 +28,41 @@ interface ChatOperation {
   updates?: Partial<TransactionData>;
 }
 
+// Função para normalizar campos de transação
+function normalizeTransactionData(data: any): any {
+  const normalized = { ...data };
+  
+  // Normalizar nome_gasto
+  if (!normalized.nome_gasto) {
+    normalized.nome_gasto = data.nome_transacao || data.descricao || data.nome || 'Não Especificado';
+  }
+  
+  // Normalizar valor_gasto
+  if (!normalized.valor_gasto && normalized.valor_gasto !== 0) {
+    normalized.valor_gasto = data.valor_transacao || data.valor || 0;
+  }
+  
+  // Normalizar tipo_transacao
+  if (!normalized.tipo_transacao) {
+    normalized.tipo_transacao = data.tipo || 'gasto';
+  }
+  
+  // Normalizar categoria
+  if (!normalized.categoria) {
+    normalized.categoria = data.categoria || 'Outros';
+  }
+  
+  // Remover campos antigos/duplicados
+  delete normalized.nome_transacao;
+  delete normalized.valor_transacao;
+  delete normalized.descricao;
+  delete normalized.nome;
+  delete normalized.valor;
+  delete normalized.tipo;
+  
+  return normalized;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -65,7 +100,9 @@ serve(async (req) => {
 
     const currentDate = new Date().toISOString().split('T')[0];
     
-    const analysisPrompt = `Analise a seguinte mensagem do usuário e determine qual ação ele deseja realizar. Responda APENAS em formato JSON válido.
+    const analysisPrompt = `**IMPORTANTE: Responda APENAS com um objeto JSON plano, sem aninhamento, usando EXATAMENTE os nomes de campos especificados abaixo.**
+
+Analise a seguinte mensagem do usuário e determine qual ação ele deseja realizar.
 
 Possíveis ações:
 1. "create" - Criar nova transação (ex: "Gastei 50 no mercado", "Recebo salário de 3000")
@@ -73,16 +110,33 @@ Possíveis ações:
 3. "edit" - Editar transação (ex: "Mudar o valor do mercado para 60", "Alterar categoria de freelance")
 4. "delete" - Excluir transação (ex: "Excluir gasto do cinema", "Remover Netflix")
 
-Para ação "create", extraia também os dados da transação.
-Para ação "view", identifique o tipo: "transactions", "recurring", ou "summary"
-Para ação "edit"/"delete", tente identificar qual transação o usuário se refere.
+**FORMATO DE RESPOSTA OBRIGATÓRIO:**
+Para ação "create", responda com JSON no formato:
+{
+  "action": "create",
+  "nome_gasto": "nome da transação",
+  "valor_gasto": valor_numérico,
+  "tipo_transacao": "entrada" ou "gasto",
+  "categoria": "categoria_válida",
+  "data_transacao": "YYYY-MM-DD",
+  "is_recorrente": true/false,
+  "frequencia": "mensal/semanal/diaria/anual" (opcional),
+  "data_inicio": "YYYY-MM-DD" (opcional),
+  "data_fim": "YYYY-MM-DD" (opcional)
+}
 
-Exemplos de resposta:
-{ "action": "create", "transaction": { "nome_gasto": "mercado", "valor_gasto": 50, "tipo_transacao": "gasto", "categoria": "Mercado", "data_transacao": "${currentDate}", "is_recorrente": false } }
+Para outras ações:
 { "action": "view", "type": "transactions", "filter": "gastos" }
-{ "action": "view", "type": "recurring" }
-{ "action": "edit", "description": "valor do mercado para 60" }
-{ "action": "delete", "description": "gasto do cinema" }
+{ "action": "edit", "description": "descrição da edição" }
+{ "action": "delete", "description": "descrição da exclusão" }
+
+**Categorias Válidas:**
+- Gastos: Mercado, Comida, Casa, Lazer, Transporte, Diversão, Educação, Investimento, Assinatura, Outros
+- Receitas: Salário, Adiantamento, Freelancer, Investimentos, Venda, Outros
+
+**Exemplos EXATOS:**
+"Gastei 50 no mercado" → {"action": "create", "nome_gasto": "Mercado", "valor_gasto": 50, "tipo_transacao": "gasto", "categoria": "Mercado", "data_transacao": "${currentDate}", "is_recorrente": false}
+"Salário de 3000" → {"action": "create", "nome_gasto": "Salário", "valor_gasto": 3000, "tipo_transacao": "entrada", "categoria": "Salário", "data_transacao": "${currentDate}", "is_recorrente": false}
 
 Mensagem do usuário: "${message}"`;
 
@@ -128,6 +182,21 @@ Mensagem do usuário: "${message}"`;
         throw new Error('JSON não encontrado na resposta');
       }
       analysis = JSON.parse(jsonMatch[0]);
+      
+      // Lógica de desaninhamento: se houver chave 'transaction', extrair
+      if (analysis.transaction && typeof analysis.transaction === 'object') {
+        analysis = { ...analysis, ...analysis.transaction };
+        delete analysis.transaction;
+      }
+      
+      // Normalizar campos se for uma criação de transação
+      if (analysis.action === 'create' || (!analysis.action && analysis.nome_gasto)) {
+        analysis = normalizeTransactionData(analysis);
+        if (!analysis.action) {
+          analysis.action = 'create';
+        }
+      }
+      
     } catch (parseError) {
       console.error('Erro ao parsear análise:', parseError);
       return new Response(JSON.stringify({ 
@@ -143,19 +212,8 @@ Mensagem do usuário: "${message}"`;
     switch (analysis.action) {
       case 'create':
         // Validar dados da transação antes de inserir
-        if (!analysis.transaction) {
-          return new Response(JSON.stringify({ 
-            message: "Não consegui extrair os dados da transação. Tente ser mais específico sobre valores e tipos." 
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        const transactionData = analysis.transaction;
-        
-        // Validação rigorosa dos campos obrigatórios
-        if (!transactionData.nome_gasto || transactionData.nome_gasto.trim() === '') {
-          console.error('Campo nome_gasto está vazio:', transactionData);
+        if (!analysis.nome_gasto || analysis.nome_gasto.trim() === '') {
+          console.error('Campo nome_gasto está vazio:', analysis);
           return new Response(JSON.stringify({ 
             message: "Não consegui identificar o nome da transação. Tente ser mais específico." 
           }), {
@@ -163,8 +221,8 @@ Mensagem do usuário: "${message}"`;
           });
         }
 
-        if (!transactionData.valor_gasto || isNaN(Number(transactionData.valor_gasto))) {
-          console.error('Campo valor_gasto inválido:', transactionData);
+        if (!analysis.valor_gasto || isNaN(Number(analysis.valor_gasto))) {
+          console.error('Campo valor_gasto inválido:', analysis);
           return new Response(JSON.stringify({ 
             message: "Não consegui identificar o valor da transação. Por favor, informe um valor numérico." 
           }), {
@@ -172,8 +230,8 @@ Mensagem do usuário: "${message}"`;
           });
         }
 
-        if (!transactionData.tipo_transacao || (transactionData.tipo_transacao !== 'entrada' && transactionData.tipo_transacao !== 'gasto')) {
-          console.error('Campo tipo_transacao inválido:', transactionData);
+        if (!analysis.tipo_transacao || (analysis.tipo_transacao !== 'entrada' && analysis.tipo_transacao !== 'gasto')) {
+          console.error('Campo tipo_transacao inválido:', analysis);
           return new Response(JSON.stringify({ 
             message: "Não consegui identificar se é uma receita ou gasto. Tente ser mais claro." 
           }), {
@@ -181,27 +239,26 @@ Mensagem do usuário: "${message}"`;
           });
         }
 
-        if (!transactionData.categoria || transactionData.categoria.trim() === '') {
-          console.error('Campo categoria está vazio:', transactionData);
-          // Definir categoria padrão baseada no tipo
-          transactionData.categoria = transactionData.tipo_transacao === 'entrada' ? 'Outros' : 'Outros';
+        if (!analysis.categoria || analysis.categoria.trim() === '') {
+          console.error('Campo categoria está vazio:', analysis);
+          analysis.categoria = analysis.tipo_transacao === 'entrada' ? 'Outros' : 'Outros';
         }
 
         // Log dos dados antes de inserir
-        console.log('Dados da transação validados:', JSON.stringify(transactionData, null, 2));
+        console.log('Dados da transação validados:', JSON.stringify(analysis, null, 2));
         
-        if (transactionData.is_recorrente && transactionData.frequencia) {
+        if (analysis.is_recorrente && analysis.frequencia) {
           const { data: recorrenciaData, error: recorrenciaError } = await supabase
             .from('recorrencias')
             .insert([{
               user_id: user.id,
-              nome_recorrencia: transactionData.nome_gasto,
-              valor_recorrencia: Number(transactionData.valor_gasto),
-              tipo_transacao: transactionData.tipo_transacao,
-              categoria: transactionData.categoria,
-              frequencia: transactionData.frequencia,
-              data_inicio: transactionData.data_inicio || currentDate,
-              data_fim: transactionData.data_fim || null,
+              nome_recorrencia: analysis.nome_gasto,
+              valor_recorrencia: Number(analysis.valor_gasto),
+              tipo_transacao: analysis.tipo_transacao,
+              categoria: analysis.categoria,
+              frequencia: analysis.frequencia,
+              data_inicio: analysis.data_inicio || currentDate,
+              data_fim: analysis.data_fim || null,
             }])
             .select();
 
@@ -214,11 +271,11 @@ Mensagem do usuário: "${message}"`;
             .from('transacoes')
             .insert([{
               user_id: user.id,
-              nome_gasto: transactionData.nome_gasto,
-              valor_gasto: Number(transactionData.valor_gasto),
-              tipo_transacao: transactionData.tipo_transacao,
-              categoria: transactionData.categoria,
-              data_transacao: transactionData.data_transacao || currentDate,
+              nome_gasto: analysis.nome_gasto,
+              valor_gasto: Number(analysis.valor_gasto),
+              tipo_transacao: analysis.tipo_transacao,
+              categoria: analysis.categoria,
+              data_transacao: analysis.data_transacao || currentDate,
               is_recorrente: true,
               recorrencia_id: recorrenciaData[0].id,
             }]);
@@ -229,19 +286,19 @@ Mensagem do usuário: "${message}"`;
           }
 
           responseMessage = `✅ Transação recorrente registrada! 
-📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(transactionData.valor_gasto).toFixed(2)}
-🔄 Frequência: ${transactionData.frequencia}
-📂 Categoria: ${transactionData.categoria}`;
+📝 ${analysis.nome_gasto} - ${analysis.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(analysis.valor_gasto).toFixed(2)}
+🔄 Frequência: ${analysis.frequencia}
+📂 Categoria: ${analysis.categoria}`;
         } else {
           const { error: transacaoError } = await supabase
             .from('transacoes')
             .insert([{
               user_id: user.id,
-              nome_gasto: transactionData.nome_gasto,
-              valor_gasto: Number(transactionData.valor_gasto),
-              tipo_transacao: transactionData.tipo_transacao,
-              categoria: transactionData.categoria,
-              data_transacao: transactionData.data_transacao || currentDate,
+              nome_gasto: analysis.nome_gasto,
+              valor_gasto: Number(analysis.valor_gasto),
+              tipo_transacao: analysis.tipo_transacao,
+              categoria: analysis.categoria,
+              data_transacao: analysis.data_transacao || currentDate,
               is_recorrente: false,
             }]);
 
@@ -251,9 +308,9 @@ Mensagem do usuário: "${message}"`;
           }
 
           responseMessage = `✅ Transação registrada! 
-📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(transactionData.valor_gasto).toFixed(2)}
-📂 Categoria: ${transactionData.categoria}
-📅 Data: ${new Date(transactionData.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
+📝 ${analysis.nome_gasto} - ${analysis.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(analysis.valor_gasto).toFixed(2)}
+📂 Categoria: ${analysis.categoria}
+📅 Data: ${new Date(analysis.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
         }
         break;
 
@@ -280,9 +337,6 @@ Mensagem do usuário: "${message}"`;
             });
           }
         } else {
-          const currentMonth = new Date().getMonth() + 1;
-          const currentYear = new Date().getFullYear();
-          
           let query = supabase
             .from('transacoes')
             .select('*')
@@ -340,102 +394,27 @@ Mensagem do usuário: "${message}"`;
         break;
 
       default:
-        // Se não foi possível identificar a ação, tentar processar como criação de transação
-        const createPrompt = `Analise a seguinte frase do usuário e extraia as informações financeiras. Responda **APENAS** com um objeto JSON.
+        // Fallback melhorado - tentar processar como transação diretamente
+        const fallbackPrompt = `**RESPONDA APENAS COM UM OBJETO JSON PLANO. NÃO ADICIONE TEXTO ANTES OU DEPOIS DO JSON.**
 
-**Campos esperados no JSON:**
-- nome_gasto: (string) Uma breve descrição ou nome da transação. Se a frase não fornecer um nome explícito, use a categoria como nome.
-- valor_gasto: (number) O valor numérico da transação.
-- tipo_transacao: (string) 'entrada' ou 'gasto'.
-- categoria: (string) A categoria mais apropriada da lista fornecida.
-- data_transacao: (string, formato YYYY-MM-DD) A data da transação. Se não especificada, use a data atual.
-- is_recorrente: (boolean) true se a transação for recorrente, false caso contrário.
-- frequencia: (string, opcional) 'diaria', 'semanal', 'mensal', 'anual'. Apenas se is_recorrente for true.
-- data_inicio: (string, formato YYYY-MM-DD, opcional) Data de início da recorrência. Se não especificada, use a data atual. Apenas se is_recorrente for true.
-- data_fim: (string, formato YYYY-MM-DD, opcional) Data de fim da recorrência. Apenas se is_recorrente for true.
+Extraia as informações financeiras da frase do usuário. Use EXATAMENTE estes nomes de campos:
 
-**Categorias Válidas:**
-- **Gastos:** Mercado, Comida, Casa, Lazer, Transporte, Diversão, Educação, Investimento, Assinatura, Outros
-- **Receitas:** Salário, Adiantamento, Freelancer, Investimentos, Venda, Outros
+**Campos obrigatórios no JSON:**
+- nome_gasto: (string) Nome/descrição da transação
+- valor_gasto: (number) Valor numérico
+- tipo_transacao: (string) "entrada" ou "gasto"  
+- categoria: (string) Categoria da lista válida
+- data_transacao: (string) Data no formato YYYY-MM-DD
+- is_recorrente: (boolean) true/false
 
-**Regras de Classificação Automática:**
-- "mercado", "supermercado" = "Mercado"
-- "uber", "taxi", "ônibus" = "Transporte"
-- "almoço", "jantar", "restaurante" = "Comida"
-- "cinema", "show" = "Diversão"
-- "netflix", "spotify" = "Assinatura"
-- "curso", "livro" = "Educação"
-- "freelance", "freela" = "Freelancer"
-- "salário", "trabalho" = "Salário"
-- "investimento", "juros" = "Investimentos"
+**Categorias válidas:**
+Gastos: Mercado, Comida, Casa, Lazer, Transporte, Diversão, Educação, Investimento, Assinatura, Outros
+Receitas: Salário, Adiantamento, Freelancer, Investimentos, Venda, Outros
 
-**Exemplos (Input do Usuário -> Output JSON):**
+**Exemplos:**
+"Gastei 50 no mercado" → {"nome_gasto": "Mercado", "valor_gasto": 50, "tipo_transacao": "gasto", "categoria": "Mercado", "data_transacao": "${currentDate}", "is_recorrente": false}
 
-**Exemplo 1 (Entrada simples):**
-Usuário: "Salário, entrada, 4500 reais"
-JSON:
-{
-  "nome_gasto": "Salário",
-  "valor_gasto": 4500.00,
-  "tipo_transacao": "entrada",
-  "categoria": "Salário",
-  "data_transacao": "${currentDate}",
-  "is_recorrente": false
-}
-
-**Exemplo 2 (Gasto simples):**
-Usuário: "Gastei 50 reais no mercado hoje."
-JSON:
-{
-  "nome_gasto": "Mercado",
-  "valor_gasto": 50.00,
-  "tipo_transacao": "gasto",
-  "categoria": "Mercado",
-  "data_transacao": "${currentDate}",
-  "is_recorrente": false
-}
-
-**Exemplo 3 (Gasto com nome explícito):**
-Usuário: "Comprei um livro de R$ 75,00 na Amazon."
-JSON:
-{
-  "nome_gasto": "Livro Amazon",
-  "valor_gasto": 75.00,
-  "tipo_transacao": "gasto",
-  "categoria": "Educação",
-  "data_transacao": "${currentDate}",
-  "is_recorrente": false
-}
-
-**Exemplo 4 (Receita recorrente):**
-Usuário: "Recebo 1500 de salário todo mês."
-JSON:
-{
-  "nome_gasto": "Salário Mensal",
-  "valor_gasto": 1500.00,
-  "tipo_transacao": "entrada",
-  "categoria": "Salário",
-  "data_transacao": "${currentDate}",
-  "is_recorrente": true,
-  "frequencia": "mensal",
-  "data_inicio": "${currentDate}"
-}
-
-**Exemplo 5 (Gasto recorrente com data específica):**
-Usuário: "Pago 100 de Netflix mensalmente, começando em 01/07/2025."
-JSON:
-{
-  "nome_gasto": "Netflix",
-  "valor_gasto": 100.00,
-  "tipo_transacao": "gasto",
-  "categoria": "Assinatura",
-  "data_transacao": "2025-07-01",
-  "is_recorrente": true,
-  "frequencia": "mensal",
-  "data_inicio": "2025-07-01"
-}
-
-Frase do usuário: "${message}"`;
+Frase: "${message}"`;
 
         const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
           method: 'POST',
@@ -446,7 +425,7 @@ Frase do usuário: "${message}"`;
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: createPrompt
+                text: fallbackPrompt
               }]
             }]
           }),
@@ -459,9 +438,12 @@ Frase do usuário: "${message}"`;
             try {
               const jsonMatch = fallbackText.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
-                const transactionData = JSON.parse(jsonMatch[0]);
+                let transactionData = JSON.parse(jsonMatch[0]);
                 
-                // Validação dos campos obrigatórios usando nome_gasto e valor_gasto
+                // Normalizar dados do fallback
+                transactionData = normalizeTransactionData(transactionData);
+                
+                // Validação dos campos obrigatórios
                 if (transactionData.nome_gasto && transactionData.valor_gasto && transactionData.tipo_transacao && transactionData.categoria) {
                   const { error: transacaoError } = await supabase
                     .from('transacoes')
@@ -480,6 +462,8 @@ Frase do usuário: "${message}"`;
 📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(transactionData.valor_gasto).toFixed(2)}
 📂 Categoria: ${transactionData.categoria}
 📅 Data: ${new Date(transactionData.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
+                  } else {
+                    console.error('Erro ao inserir transação no fallback:', transacaoError);
                   }
                 }
               }
