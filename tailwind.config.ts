@@ -36,6 +36,7 @@ export default {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
 				},
+				skeleton: 'hsl(var(--skeleton))',
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
@@ -83,7 +84,15 @@ export default {
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
+				DEFAULT: "0.5rem",
+			},
+			boxShadow: {
+				input: [
+					"0px 2px 3px -1px rgba(0, 0, 0, 0.1)",
+					"0px 1px 0px 0px rgba(25, 28, 33, 0.02)",
+					"0px 0px 0px 1px rgba(25, 28, 33, 0.08)",
+				].join(", "),
 			},
 			keyframes: {
 				"accordion-down": {
@@ -106,6 +115,18 @@ export default {
 					from: { transform: "translateY(10px)", opacity: "0" },
 					to: { transform: "translateY(0)", opacity: "1" },
 				},
+				"ripple": {
+					"0%, 100%": { transform: "translate(-50%, -50%) scale(1)" },
+					"50%": { transform: "translate(-50%, -50%) scale(0.9)" },
+				},
+				"orbit": {
+					"0%": {
+						transform: "rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg)",
+					},
+					"100%": {
+						transform: "rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg)",
+					},
+				},
 			},
 			animation: {
 				"accordion-down": "accordion-down 0.2s ease-out",
@@ -113,6 +134,8 @@ export default {
 				"fade-in": "fade-in 0.3s ease-out",
 				"fade-out": "fade-out 0.3s ease-out",
 				"slide-in": "slide-in 0.3s ease-out",
+				"ripple": "ripple 2s ease calc(var(--i, 0) * 0.2s) infinite",
+				"orbit": "orbit calc(var(--duration) * 1s) linear infinite",
 			}
 		}
 	},

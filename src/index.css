@@ -40,6 +40,8 @@
 		--ring: 259 85% 70%;
 
 		--radius: 0.75rem;
+		--skeleton: 218 36% 16%;
+		--btn-border: 217 33% 18%;
 
 		--sidebar-background: 260 15% 10%;
 		--sidebar-foreground: 260 5% 95%;
@@ -86,5 +88,10 @@
 
 	.card-hover {
 		@apply transition-all hover:shadow-md hover:border-primary/30;
+	}
+
+	.g-button {
+		@apply rounded-[var(--radius)] border;
+		border-color: hsl(var(--btn-border));
 	}
 }
