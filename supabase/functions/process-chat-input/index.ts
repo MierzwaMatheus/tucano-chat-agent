@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -86,7 +85,7 @@ Exemplos de resposta:
 
 Mensagem do usuário: "${message}"`;
 
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -101,11 +100,12 @@ Mensagem do usuário: "${message}"`;
     });
 
     if (!geminiResponse.ok) {
+      console.error('Gemini API Error:', await geminiResponse.text());
       throw new Error(`Erro na API Gemini: ${geminiResponse.statusText}`);
     }
 
     const geminiData = await geminiResponse.json();
-    console.log('Gemini analysis response:', geminiData);
+    console.log('Gemini analysis response:', JSON.stringify(geminiData, null, 2));
     
     if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
       return new Response(JSON.stringify({ 
@@ -313,7 +313,7 @@ JSON: { "nome_gasto": "salário", "valor_gasto": 1500.00, "tipo_transacao": "ent
 
 Frase do usuário: "${message}"`;
 
-        const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+        const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
