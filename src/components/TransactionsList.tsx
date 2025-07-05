@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import { Transaction, Recurrence } from '@/hooks/useTransactions';
+import { TransactionCard } from '@/components/ui/bauhaus-card';
 
 export const TransactionsList = () => {
   const {
@@ -178,9 +178,6 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
-            formatCurrency={formatCurrency}
-            formatDate={formatDate}
-            getTransactionIcon={getTransactionIcon}
           />
         </TabsContent>
 
@@ -188,9 +185,6 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
-            formatCurrency={formatCurrency}
-            formatDate={formatDate}
-            getTransactionIcon={getTransactionIcon}
           />
         </TabsContent>
 
@@ -198,9 +192,6 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
-            formatCurrency={formatCurrency}
-            formatDate={formatDate}
-            getTransactionIcon={getTransactionIcon}
           />
         </TabsContent>
 
@@ -208,9 +199,6 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
-            formatCurrency={formatCurrency}
-            formatDate={formatDate}
-            getTransactionIcon={getTransactionIcon}
           />
         </TabsContent>
       </Tabs>
@@ -266,23 +254,17 @@ export const TransactionsList = () => {
 interface TransactionGridProps {
   transactions: (Transaction | Recurrence)[];
   loading: boolean;
-  formatCurrency: (value: number) => string;
-  formatDate: (dateString: string) => string;
-  getTransactionIcon: (tipo: 'entrada' | 'gasto', isRecurrent?: boolean) => JSX.Element;
 }
 
 const TransactionGrid: React.FC<TransactionGridProps> = ({
   transactions,
   loading,
-  formatCurrency,
-  formatDate,
-  getTransactionIcon
 }) => {
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>
+          <div key={i} className="h-32 bg-muted rounded-xl animate-pulse"></div>
         ))}
       </div>
     );
@@ -293,8 +275,8 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
       <Card className="glass border-white/20 backdrop-blur-lg">
         <CardContent className="flex items-center justify-center py-12">
           <div className="text-center">
-            <p className="text-gray-500 text-lg">Nenhuma transação encontrada</p>
-            <p className="text-gray-400 text-sm mt-2">
+            <p className="text-muted-foreground text-lg">Nenhuma transação encontrada</p>
+            <p className="text-muted-foreground/80 text-sm mt-2">
               Tente ajustar os filtros ou adicionar novas transações
             </p>
           </div>
@@ -304,44 +286,20 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {transactions.map((transaction) => (
-        <Card 
-          key={transaction.id} 
-          className="glass border-white/20 backdrop-blur-lg hover:shadow-lg transition-all duration-200"
-        >
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                {getTransactionIcon(transaction.tipo_transacao, 'isRecurrent' in transaction ? transaction.isRecurrent : false)}
-                <div>
-                  <h3 className="font-semibold text-gray-800 truncate">
-                    {transaction.nome_gasto}
-                  </h3>
-                  <p className="text-sm text-gray-500">{transaction.categoria}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`font-bold ${
-                  transaction.tipo_transacao === 'entrada' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {transaction.tipo_transacao === 'entrada' ? '+' : '-'}
-                  {formatCurrency(transaction.valor_gasto)}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatDate(transaction.data_transacao)}
-                </p>
-              </div>
-            </div>
-            
-            {'isRecurrent' in transaction && transaction.isRecurrent && (
-              <Badge variant="outline" className="text-xs">
-                <Repeat className="h-3 w-3 mr-1" />
-                Recorrente
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
+        <TransactionCard
+          key={transaction.id}
+          id={transaction.id}
+          tipo_transacao={transaction.tipo_transacao}
+          nome_gasto={transaction.nome_gasto}
+          categoria={transaction.categoria}
+          valor_gasto={transaction.valor_gasto}
+          data_transacao={transaction.data_transacao}
+          isRecurrent={'isRecurrent' in transaction ? transaction.isRecurrent : false}
+          onEdit={(id) => console.log('Edit transaction:', id)}
+          onDelete={(id) => console.log('Delete transaction:', id)}
+        />
       ))}
     </div>
   );
