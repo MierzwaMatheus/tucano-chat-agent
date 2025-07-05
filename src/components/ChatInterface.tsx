@@ -17,7 +17,7 @@ export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Conte-me sobre seus gastos ou receitas e eu vou registrar automaticamente para você! Por exemplo: "Gastei 50 reais no mercado hoje" ou "Recebo 3000 de salário todo mês".',
+      text: 'Olá! Eu sou o Tucano Agent, seu assistente financeiro pessoal. Posso ajudá-lo a:\n\n💰 **Registrar transações:** "Gastei 50 reais no mercado" ou "Recebo 3000 de salário mensalmente"\n\n📊 **Ver suas finanças:** "Mostrar meus gastos", "Ver receitas deste mês", "Quais minhas transações recorrentes?"\n\n✏️ **Editar transações:** "Alterar o valor do mercado para 60 reais"\n\n🗑️ **Excluir transações:** "Remover o gasto do cinema"\n\nComo posso ajudá-lo hoje?',
       isUser: false,
       timestamp: new Date(),
     },
@@ -65,7 +65,6 @@ export const ChatInterface = () => {
     setIsLoading(true);
 
     try {
-      // Chamar a Edge Function
       const { data, error } = await supabase.functions.invoke('process-chat-input', {
         body: { message: currentInput }
       });
@@ -83,8 +82,10 @@ export const ChatInterface = () => {
 
       setMessages(prev => [...prev, assistantMessage]);
       
-      // Atualizar lista de transações após processar
-      refetch();
+      // Atualizar lista de transações após qualquer operação
+      setTimeout(() => {
+        refetch();
+      }, 500);
 
     } catch (error) {
       console.error('Erro ao processar mensagem:', error);
@@ -118,7 +119,7 @@ export const ChatInterface = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-800">Tucano Agent</h1>
-              <p className="text-sm text-gray-600">Seu assistente financeiro</p>
+              <p className="text-sm text-gray-600">Seu assistente financeiro inteligente</p>
             </div>
           </div>
           
@@ -170,7 +171,7 @@ export const ChatInterface = () => {
                   <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                   <div className="w-2 h-2 bg-tucano-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
-                <span className="text-sm text-gray-600">Processando sua transação...</span>
+                <span className="text-sm text-gray-600">Analisando sua solicitação...</span>
               </div>
             </div>
           </div>
@@ -188,7 +189,7 @@ export const ChatInterface = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Exemplo: 'Gastei 25 reais no almoço' ou 'Recebo 5000 de salário mensalmente'"
+              placeholder="Digite sua mensagem... Ex: 'Gastei 25 no almoço', 'Mostrar meus gastos', 'Ver receitas deste mês'"
               rows={1}
               className="w-full resize-none rounded-2xl border border-white/20 bg-white/50 backdrop-blur-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-tucano-500 focus:border-transparent placeholder-gray-500"
               style={{ maxHeight: '120px' }}
