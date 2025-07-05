@@ -1,11 +1,28 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import { ChatInterface } from '@/components/ChatInterface';
+import { Dashboard } from '@/components/Dashboard';
+import { Navigation } from '@/components/Navigation';
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard'>('chat');
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gradient-to-br from-tucano-50 via-white to-tucano-100">
+      <div className="flex flex-col h-screen">
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'chat' ? (
+            <ChatInterface />
+          ) : (
+            <div className="h-full overflow-y-auto">
+              <Dashboard />
+            </div>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
     </div>
   );
