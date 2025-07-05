@@ -142,7 +142,7 @@ Mensagem do usuário: "${message}"`;
     // Processar baseado na ação identificada
     switch (analysis.action) {
       case 'create':
-        // Lógica existente para criar transação
+        // Validar dados da transação antes de inserir
         if (!analysis.transaction) {
           return new Response(JSON.stringify({ 
             message: "Não consegui extrair os dados da transação. Tente ser mais específico sobre valores e tipos." 
@@ -153,13 +153,50 @@ Mensagem do usuário: "${message}"`;
 
         const transactionData = analysis.transaction;
         
+        // Validação rigorosa dos campos obrigatórios
+        if (!transactionData.nome_gasto || transactionData.nome_gasto.trim() === '') {
+          console.error('Campo nome_gasto está vazio:', transactionData);
+          return new Response(JSON.stringify({ 
+            message: "Não consegui identificar o nome da transação. Tente ser mais específico." 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!transactionData.valor_gasto || isNaN(Number(transactionData.valor_gasto))) {
+          console.error('Campo valor_gasto inválido:', transactionData);
+          return new Response(JSON.stringify({ 
+            message: "Não consegui identificar o valor da transação. Por favor, informe um valor numérico." 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!transactionData.tipo_transacao || (transactionData.tipo_transacao !== 'entrada' && transactionData.tipo_transacao !== 'gasto')) {
+          console.error('Campo tipo_transacao inválido:', transactionData);
+          return new Response(JSON.stringify({ 
+            message: "Não consegui identificar se é uma receita ou gasto. Tente ser mais claro." 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!transactionData.categoria || transactionData.categoria.trim() === '') {
+          console.error('Campo categoria está vazio:', transactionData);
+          // Definir categoria padrão baseada no tipo
+          transactionData.categoria = transactionData.tipo_transacao === 'entrada' ? 'Outros' : 'Outros';
+        }
+
+        // Log dos dados antes de inserir
+        console.log('Dados da transação validados:', JSON.stringify(transactionData, null, 2));
+        
         if (transactionData.is_recorrente && transactionData.frequencia) {
           const { data: recorrenciaData, error: recorrenciaError } = await supabase
             .from('recorrencias')
             .insert([{
               user_id: user.id,
               nome_recorrencia: transactionData.nome_gasto,
-              valor_recorrencia: transactionData.valor_gasto,
+              valor_recorrencia: Number(transactionData.valor_gasto),
               tipo_transacao: transactionData.tipo_transacao,
               categoria: transactionData.categoria,
               frequencia: transactionData.frequencia,
@@ -178,7 +215,7 @@ Mensagem do usuário: "${message}"`;
             .insert([{
               user_id: user.id,
               nome_gasto: transactionData.nome_gasto,
-              valor_gasto: transactionData.valor_gasto,
+              valor_gasto: Number(transactionData.valor_gasto),
               tipo_transacao: transactionData.tipo_transacao,
               categoria: transactionData.categoria,
               data_transacao: transactionData.data_transacao || currentDate,
@@ -187,11 +224,12 @@ Mensagem do usuário: "${message}"`;
             }]);
 
           if (transacaoError) {
+            console.error('Erro ao inserir transação:', transacaoError);
             throw new Error('Erro ao registrar transação');
           }
 
           responseMessage = `✅ Transação recorrente registrada! 
-📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${transactionData.valor_gasto.toFixed(2)}
+📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(transactionData.valor_gasto).toFixed(2)}
 🔄 Frequência: ${transactionData.frequencia}
 📂 Categoria: ${transactionData.categoria}`;
         } else {
@@ -200,7 +238,7 @@ Mensagem do usuário: "${message}"`;
             .insert([{
               user_id: user.id,
               nome_gasto: transactionData.nome_gasto,
-              valor_gasto: transactionData.valor_gasto,
+              valor_gasto: Number(transactionData.valor_gasto),
               tipo_transacao: transactionData.tipo_transacao,
               categoria: transactionData.categoria,
               data_transacao: transactionData.data_transacao || currentDate,
@@ -208,11 +246,12 @@ Mensagem do usuário: "${message}"`;
             }]);
 
           if (transacaoError) {
+            console.error('Erro ao inserir transação:', transacaoError);
             throw new Error('Erro ao registrar transação');
           }
 
           responseMessage = `✅ Transação registrada! 
-📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${transactionData.valor_gasto.toFixed(2)}
+📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(transactionData.valor_gasto).toFixed(2)}
 📂 Categoria: ${transactionData.categoria}
 📅 Data: ${new Date(transactionData.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
         }
@@ -339,8 +378,28 @@ Frase do usuário: "${message}"`;
               const jsonMatch = fallbackText.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
                 const transactionData = JSON.parse(jsonMatch[0]);
-                // Processar como criação de transação...
-                // (código similar ao case 'create')
+                
+                // Validação dos campos obrigatórios
+                if (transactionData.nome_gasto && transactionData.valor_gasto && transactionData.tipo_transacao && transactionData.categoria) {
+                  const { error: transacaoError } = await supabase
+                    .from('transacoes')
+                    .insert([{
+                      user_id: user.id,
+                      nome_gasto: transactionData.nome_gasto,
+                      valor_gasto: Number(transactionData.valor_gasto),
+                      tipo_transacao: transactionData.tipo_transacao,
+                      categoria: transactionData.categoria,
+                      data_transacao: transactionData.data_transacao || currentDate,
+                      is_recorrente: transactionData.is_recorrente || false,
+                    }]);
+
+                  if (!transacaoError) {
+                    responseMessage = `✅ Transação registrada! 
+📝 ${transactionData.nome_gasto} - ${transactionData.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(transactionData.valor_gasto).toFixed(2)}
+📂 Categoria: ${transactionData.categoria}
+📅 Data: ${new Date(transactionData.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
+                  }
+                }
               }
             } catch (e) {
               console.error('Erro no fallback:', e);
