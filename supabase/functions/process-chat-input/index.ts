@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from './types.ts';
 import { normalizeTransactionData } from './data-normalizer.ts';
 import { analyzeUserMessage } from './gemini-service.ts';
-import { createTransaction, editTransaction, viewTransactions, handleFallbackTransaction } from './transaction-handler.ts';
+import { createTransaction, editTransaction, deleteTransaction, viewTransactions, handleFallbackTransaction } from './transaction-handler.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -104,11 +104,7 @@ serve(async (req) => {
         break;
 
       case 'delete':
-        responseMessage = `🗑️ Para excluir uma transação, preciso que você seja mais específico. Por exemplo:\n\n`;
-        responseMessage += `• "Excluir o gasto de R$ 20 no cinema de ontem"\n`;
-        responseMessage += `• "Remover minha recorrência do Spotify"\n`;
-        responseMessage += `• "Deletar a última compra no mercado"\n\n`;
-        responseMessage += `Ou me diga o nome exato da transação que deseja excluir.`;
+        responseMessage = await deleteTransaction(analysis, supabase, user.id);
         break;
 
       default:

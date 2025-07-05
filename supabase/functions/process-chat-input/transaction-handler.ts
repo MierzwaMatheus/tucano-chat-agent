@@ -237,6 +237,106 @@ Tente ser mais específico, por exemplo:
   }
 }
 
+export async function deleteTransaction(analysis: any, supabase: any, userId: string): Promise<string> {
+  console.log('Iniciando exclusão:', JSON.stringify(analysis, null, 2));
+
+  if (!analysis.nome_gasto || analysis.nome_gasto.trim() === '') {
+    throw new Error("Para excluir um item, preciso saber qual item você quer remover. Tente ser mais específico sobre o nome.");
+  }
+
+  // Determinar se é transação ou recorrência
+  const isRecurrence = analysis.target_type === 'recorrencia';
+  const tableName = isRecurrence ? 'recorrencias' : 'transacoes';
+  const nameField = isRecurrence ? 'nome_recorrencia' : 'nome_gasto';
+  const itemType = isRecurrence ? 'recorrência' : 'transação';
+
+  try {
+    // Buscar o item mais recente com o nome especificado
+    const { data: items, error: searchError } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('user_id', userId)
+      .eq(nameField, analysis.nome_gasto)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (searchError) {
+      console.error(`Erro ao buscar ${itemType}:`, searchError);
+      throw new Error(`Erro ao buscar a ${itemType} para exclusão`);
+    }
+
+    if (!items || items.length === 0) {
+      return `❌ Não encontrei nenhuma ${itemType} com o nome "${analysis.nome_gasto}". 
+
+Tente ser mais específico ou verifique se o nome está correto. Você pode usar comandos como:
+• "Mostrar minhas transações" para ver as transações disponíveis
+• "Mostrar transações recorrentes" para ver as recorrências disponíveis`;
+    }
+
+    const item = items[0];
+    console.log(`${itemType} encontrada:`, JSON.stringify(item, null, 2));
+
+    // Se for uma recorrência, também excluir as transações relacionadas
+    if (isRecurrence) {
+      const { error: deleteTransactionsError } = await supabase
+        .from('transacoes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('recorrencia_id', item.id);
+
+      if (deleteTransactionsError) {
+        console.error('Erro ao excluir transações da recorrência:', deleteTransactionsError);
+        // Não vamos falhar a operação por causa disso, apenas loggar
+      }
+    }
+
+    // Excluir o item principal
+    const { error: deleteError } = await supabase
+      .from(tableName)
+      .delete()
+      .eq('id', item.id)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error(`Erro ao excluir ${itemType}:`, deleteError);
+      throw new Error(`Erro ao excluir a ${itemType}`);
+    }
+
+    // Construir mensagem de sucesso
+    let mensagem = `✅ ${itemType.charAt(0).toUpperCase() + itemType.slice(1)} "${analysis.nome_gasto}" excluída com sucesso!\n\n`;
+    
+    if (isRecurrence) {
+      mensagem += `🗑️ **Recorrência removida:**\n`;
+      mensagem += `💰 Valor: R$ ${item.valor_recorrencia.toFixed(2)}\n`;
+      mensagem += `🔄 Frequência: ${item.frequencia}\n`;
+      mensagem += `📂 Categoria: ${item.categoria}\n`;
+      mensagem += `📅 Período: ${new Date(item.data_inicio).toLocaleDateString('pt-BR')}`;
+      
+      if (item.data_fim) {
+        mensagem += ` até ${new Date(item.data_fim).toLocaleDateString('pt-BR')}`;
+      }
+      
+      mensagem += `\n\n🔗 Todas as transações relacionadas a esta recorrência também foram removidas.`;
+    } else {
+      mensagem += `🗑️ **Transação removida:**\n`;
+      mensagem += `💰 Valor: R$ ${item.valor_gasto.toFixed(2)}\n`;
+      mensagem += `📊 Tipo: ${item.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'}\n`;
+      mensagem += `📂 Categoria: ${item.categoria}\n`;
+      mensagem += `📅 Data: ${new Date(item.data_transacao).toLocaleDateString('pt-BR')}`;
+      
+      if (item.is_recorrente) {
+        mensagem += `\n\n⚠️ Esta era uma transação recorrente. A recorrência ainda está ativa e pode gerar novas transações.`;
+      }
+    }
+
+    return mensagem;
+
+  } catch (error) {
+    console.error(`Erro na exclusão de ${itemType}:`, error);
+    throw error;
+  }
+}
+
 export async function viewTransactions(analysis: any, supabase: any, userId: string): Promise<string> {
   if (analysis.type === 'recurring') {
     const { data: recorrencias, error } = await supabase
