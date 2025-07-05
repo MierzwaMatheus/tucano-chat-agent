@@ -1,5 +1,4 @@
 
-
 export async function analyzeUserMessage(message: string, geminiApiKey: string): Promise<any> {
   const prompt = `
 Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninhamento. Use EXATAMENTE estes nomes de campos:
@@ -21,6 +20,9 @@ Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninham
 **Campos para visualização:**
 - type: "transactions" | "recurring" | "summary"
 - filter: "gastos" | "receitas" | "entradas" | "recorrentes"
+
+**Campos para exclusão:**
+- target_type: "transacao" | "recorrencia" (indica se é para excluir transação ou recorrência)
 
 **Exemplos de análise:**
 
@@ -69,20 +71,41 @@ Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninham
   "valor_gasto": 80
 }
 
-6. "Mudar a categoria do mercado para Alimentação"
+6. "Excluir o gasto do cinema"
 {
-  "action": "edit",
-  "nome_gasto": "Mercado",
-  "categoria": "Alimentação"
+  "action": "delete",
+  "nome_gasto": "Cinema",
+  "target_type": "transacao"
 }
 
-7. "Editar a compra no supermercado para R$ 120 e categoria Alimentação"
+7. "Remover a recorrência do Netflix"
 {
-  "action": "edit",
-  "nome_gasto": "Supermercado",
-  "valor_gasto": 120,
-  "categoria": "Alimentação"
+  "action": "delete",
+  "nome_gasto": "Netflix",
+  "target_type": "recorrencia"
 }
+
+8. "Deletar minha assinatura do Spotify"
+{
+  "action": "delete",
+  "nome_gasto": "Spotify",
+  "target_type": "recorrencia"
+}
+
+9. "Apagar o gasto de R$ 50 no mercado"
+{
+  "action": "delete",
+  "nome_gasto": "Mercado",
+  "target_type": "transacao"
+}
+
+**IMPORTANTE para exclusões:** 
+- Quando detectar intenção de exclusão/remoção/deletar, sempre use "action": "delete"
+- Para exclusões, inclua o target_type para indicar se é "transacao" ou "recorrencia"
+- O nome_gasto é obrigatório para identificar qual item excluir
+- Palavras-chave de exclusão: "excluir", "remover", "deletar", "apagar", "eliminar"
+- Se mencionar "recorrência", "assinatura", "mensalidade", use target_type: "recorrencia"
+- Se mencionar "gasto", "compra", "transação", use target_type: "transacao"
 
 **IMPORTANTE para edições:** 
 - Quando detectar intenção de edição/alteração/mudança, sempre use "action": "edit"
@@ -95,7 +118,6 @@ Mensagem do usuário: "${message}"
 Retorne APENAS o objeto JSON, sem texto adicional.`;
 
   try {
-    // URL corrigida da Gemini API
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
