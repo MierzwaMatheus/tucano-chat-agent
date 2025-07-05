@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { MessageCircle, BarChart3 } from 'lucide-react';
+import { MessageCircle, BarChart3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface NavigationProps {
-  activeTab: 'chat' | 'dashboard';
-  onTabChange: (tab: 'chat' | 'dashboard') => void;
+  activeTab: 'chat' | 'dashboard' | 'transactions';
+  onTabChange: (tab: 'chat' | 'dashboard' | 'transactions') => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
@@ -36,6 +36,19 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
         >
           <BarChart3 className="h-5 w-5" />
           <span className="font-medium">Dashboard</span>
+        </Button>
+
+        <Button
+          onClick={() => onTabChange('transactions')}
+          variant={activeTab === 'transactions' ? 'default' : 'ghost'}
+          className={`flex-1 rounded-2xl py-3 flex items-center justify-center space-x-2 transition-all duration-200 ${
+            activeTab === 'transactions'
+              ? 'bg-gradient-to-r from-tucano-500 to-tucano-600 text-white shadow-lg'
+              : 'text-gray-600 hover:bg-white/50'
+          }`}
+        >
+          <List className="h-5 w-5" />
+          <span className="font-medium">Transações</span>
         </Button>
       </div>
     </nav>

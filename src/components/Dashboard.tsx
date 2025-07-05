@@ -5,12 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTransactions } from '@/hooks/useTransactions';
 import { AddTransactionModal } from './AddTransactionModal';
+import { MonthlyComparisonChart } from './charts/MonthlyComparisonChart';
+import { CategoryDistributionChart } from './charts/CategoryDistributionChart';
+import { BalanceEvolutionChart } from './charts/BalanceEvolutionChart';
 
 export const Dashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
-  const { getTransactionSummary, loading } = useTransactions();
+  const { getTransactionSummary, getChartData, loading } = useTransactions();
   
   const { saldoAtual, totalEntradas, totalGastos } = getTransactionSummary();
+  const chartData = getChartData();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -27,6 +31,11 @@ export const Dashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-80 bg-gray-200 rounded-xl"></div>
             ))}
           </div>
         </div>
@@ -54,7 +63,7 @@ export const Dashboard = () => {
               {formatCurrency(saldoAtual)}
             </div>
             <p className="text-xs text-gray-500">
-              Diferença entre entradas e gastos
+              Inclui transações recorrentes
             </p>
           </CardContent>
         </Card>
@@ -71,7 +80,7 @@ export const Dashboard = () => {
               {formatCurrency(totalEntradas)}
             </div>
             <p className="text-xs text-gray-500">
-              Receitas do mês atual
+              Receitas + recorrências do mês
             </p>
           </CardContent>
         </Card>
@@ -88,10 +97,22 @@ export const Dashboard = () => {
               {formatCurrency(totalGastos)}
             </div>
             <p className="text-xs text-gray-500">
-              Despesas do mês atual
+              Despesas + recorrências do mês
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Charts Section */}
+      <div className="space-y-6">
+        {/* Monthly Comparison Chart */}
+        <MonthlyComparisonChart data={chartData.monthlyComparison} />
+        
+        {/* Category and Balance Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CategoryDistributionChart data={chartData.categoryDistribution} />
+          <BalanceEvolutionChart data={chartData.balanceEvolution} />
+        </div>
       </div>
 
       {/* Floating Action Button */}
