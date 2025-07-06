@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,8 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { useTransactionFilters } from '@/hooks/useTransactionFilters';
-import { Transaction, Recurrence } from '@/hooks/useTransactions';
+import { useTransactionFilters, NormalizedTransaction } from '@/hooks/useTransactionFilters';
 import { TransactionCard } from '@/components/ui/bauhaus-card';
 
 export const TransactionsList = () => {
@@ -252,7 +252,7 @@ export const TransactionsList = () => {
 };
 
 interface TransactionGridProps {
-  transactions: (Transaction | Recurrence)[];
+  transactions: NormalizedTransaction[];
   loading: boolean;
 }
 
@@ -296,7 +296,7 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
           categoria={transaction.categoria}
           valor_gasto={transaction.valor_gasto}
           data_transacao={transaction.data_transacao}
-          isRecurrent={'isRecurrent' in transaction ? transaction.isRecurrent : false}
+          isRecurrent={transaction.isRecurrent}
           onEdit={(id) => console.log('Edit transaction:', id)}
           onDelete={(id) => console.log('Delete transaction:', id)}
         />
