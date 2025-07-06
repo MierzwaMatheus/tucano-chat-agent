@@ -1,4 +1,11 @@
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Create and export Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
 export async function analyzeUserMessage(message: string, geminiApiKey: string): Promise<any> {
   const prompt = `
 Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninhamento. Use EXATAMENTE estes nomes de campos:
