@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,12 +53,14 @@ export const TransactionsList = () => {
       'all': 'all',
       'entradas': 'entrada',
       'gastos': 'gasto',
-      'recorrentes': 'all'
+      'recorrentes': 'all',
+      'credito': 'gasto'
     };
     
     updateFilters({
       transactionType: typeMap[value],
-      showRecurrentOnly: value === 'recorrentes'
+      showRecurrentOnly: value === 'recorrentes',
+      showCreditOnly: value === 'credito'
     });
   };
 
@@ -203,6 +204,7 @@ export const TransactionsList = () => {
           <TabsTrigger value="all">Todas</TabsTrigger>
           <TabsTrigger value="entradas">Entradas</TabsTrigger>
           <TabsTrigger value="gastos">Gastos</TabsTrigger>
+          <TabsTrigger value="credito">Compras no Crédito</TabsTrigger>
           <TabsTrigger value="recorrentes">Recorrentes</TabsTrigger>
         </TabsList>
 
@@ -230,6 +232,16 @@ export const TransactionsList = () => {
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+          />
+        </TabsContent>
+
+        <TabsContent value="credito" className="space-y-4">
+          <TransactionGrid 
+            transactions={paginatedData.transactions}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            showCreditInfo={true}
           />
         </TabsContent>
 
@@ -312,6 +324,7 @@ interface TransactionGridProps {
   loading: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  showCreditInfo?: boolean;
 }
 
 const TransactionGrid: React.FC<TransactionGridProps> = ({
@@ -319,6 +332,7 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
   loading,
   onEdit,
   onDelete,
+  showCreditInfo = false,
 }) => {
   if (loading) {
     return (
@@ -359,6 +373,11 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
           isRecurrent={transaction.isRecurrent}
           onEdit={onEdit}
           onDelete={onDelete}
+          showCreditInfo={showCreditInfo}
+          purchase_date={transaction.purchase_date}
+          total_amount={transaction.total_amount}
+          installments={transaction.installments}
+          is_subscription={transaction.is_subscription}
         />
       ))}
     </div>

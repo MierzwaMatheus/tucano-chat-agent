@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -12,6 +11,7 @@ export interface TransactionFilters {
     end?: string;
   };
   showRecurrentOnly: boolean;
+  showCreditOnly?: boolean;
   transactionType?: 'entrada' | 'gasto' | 'all';
 }
 
@@ -25,6 +25,11 @@ export interface NormalizedTransaction {
   data_transacao: string;
   isRecurrent: boolean;
   created_at?: string;
+  // Novos campos para crédito
+  purchase_date?: string;
+  total_amount?: number;
+  installments?: number;
+  is_subscription?: boolean;
 }
 
 export interface PaginatedTransactions {
@@ -40,6 +45,7 @@ export const useTransactionFilters = () => {
     categories: [],
     dateRange: {},
     showRecurrentOnly: false,
+    showCreditOnly: false,
     transactionType: 'all'
   });
   
@@ -96,7 +102,12 @@ export const useTransactionFilters = () => {
     categoria: item.categoria,
     data_transacao: item.data_transacao,
     isRecurrent: false,
-    created_at: item.created_at
+    created_at: item.created_at,
+    // Campos de crédito
+    purchase_date: item.purchase_date,
+    total_amount: item.total_amount ? Number(item.total_amount) : undefined,
+    installments: item.installments,
+    is_subscription: item.is_subscription
   });
 
   // Normalize recurrence data to have consistent properties
@@ -153,9 +164,22 @@ export const useTransactionFilters = () => {
         recurrencesQuery = recurrencesQuery.lte('data_inicio', filters.dateRange.end);
       }
 
+      // Filtro específico para crédito
+      if (filters.showCreditOnly) {
+        transactionsQuery = transactionsQuery.not('purchase_date', 'is', null);
+      }
+
       let allTransactions: NormalizedTransaction[] = [];
 
-      if (!filters.showRecurrentOnly) {
+      if (!filters.showRecurrentOnly && !filters.showCreditOnly) {
+        const { data: transactions } = await transactionsQuery
+          .order('data_transacao', { ascending: false });
+        
+        if (transactions) {
+          allTransactions = [...allTransactions, ...transactions.map(normalizeTransaction)];
+        }
+      } else if (filters.showCreditOnly) {
+        // Buscar apenas transações de crédito
         const { data: transactions } = await transactionsQuery
           .order('data_transacao', { ascending: false });
         
@@ -165,7 +189,7 @@ export const useTransactionFilters = () => {
       }
 
       // Always fetch recurrences for "Recorrentes" tab or when showRecurrentOnly is true
-      if (filters.showRecurrentOnly || filters.transactionType === 'all') {
+      if (filters.showRecurrentOnly) {
         const { data: recurrences } = await recurrencesQuery
           .order('data_inicio', { ascending: false });
         

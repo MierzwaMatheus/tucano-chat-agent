@@ -164,42 +164,6 @@ export type Database = {
           },
         ]
       }
-      transacoes_financeiras: {
-        Row: {
-          categoria: string | null
-          created_at: string | null
-          data_transacao: string | null
-          id: number
-          nome_gasto: string
-          session_id: string
-          tipo_gasto: string
-          updated_at: string | null
-          valor_gasto: number
-        }
-        Insert: {
-          categoria?: string | null
-          created_at?: string | null
-          data_transacao?: string | null
-          id?: number
-          nome_gasto: string
-          session_id: string
-          tipo_gasto: string
-          updated_at?: string | null
-          valor_gasto: number
-        }
-        Update: {
-          categoria?: string | null
-          created_at?: string | null
-          data_transacao?: string | null
-          id?: number
-          nome_gasto?: string
-          session_id?: string
-          tipo_gasto?: string
-          updated_at?: string | null
-          valor_gasto?: number
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never

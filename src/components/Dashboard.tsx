@@ -11,6 +11,7 @@ import { BalanceEvolutionChart } from './charts/BalanceEvolutionChart';
 import { CategoryTrendChart } from './charts/CategoryTrendChart';
 import { DailyTransactionChart } from './charts/DailyTransactionChart';
 import { RecurringTransactionsChart } from './charts/RecurringTransactionsChart';
+import { CreditCardSummary } from './CreditCardSummary';
 
 export const Dashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -24,6 +25,11 @@ export const Dashboard = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const handleViewCreditDetails = () => {
+    // Esta função pode ser implementada para navegar para a aba de crédito
+    console.log('Navegar para detalhes do cartão');
   };
 
   if (loading) {
@@ -53,7 +59,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Bento Grid Summary Cards */}
-      <BentoGrid className="lg:grid-rows-2 auto-rows-[16rem] md:auto-rows-[18rem]">
+      <BentoGrid className="lg:grid-rows-3 auto-rows-[16rem] md:auto-rows-[18rem]">
         {/* Saldo Atual - Card principal */}
         <Card className="lg:row-start-1 lg:row-end-3 lg:col-start-1 lg:col-end-3 glass border-white/20 backdrop-blur-lg bg-gray-900/90">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -107,6 +113,11 @@ export const Dashboard = () => {
             </p>
           </CardContent>
         </Card>
+
+        {/* Resumo do Cartão de Crédito */}
+        <div className="lg:col-start-1 lg:col-end-4 lg:row-start-3 lg:row-end-4">
+          <CreditCardSummary onViewDetails={handleViewCreditDetails} />
+        </div>
       </BentoGrid>
 
       {/* Charts Section */}
