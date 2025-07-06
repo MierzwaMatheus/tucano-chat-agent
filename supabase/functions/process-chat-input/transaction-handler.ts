@@ -1,35 +1,96 @@
-
 import { normalizeTransactionData } from './data-normalizer.ts';
+
+// Função para calcular datas de pagamento do cartão de crédito
+function calculateCreditCardPaymentDates(purchaseDate: Date, closingDay: number, paymentDay: number, installments: number): Date[] {
+  const dates: Date[] = [];
+  const purchase = new Date(purchaseDate);
+  
+  // Se a compra foi após o fechamento do mês atual, a primeira parcela é no mês seguinte
+  let firstPaymentMonth = purchase.getMonth();
+  let firstPaymentYear = purchase.getFullYear();
+  
+  if (purchase.getDate() > closingDay) {
+    firstPaymentMonth += 1;
+    if (firstPaymentMonth > 11) {
+      firstPaymentMonth = 0;
+      firstPaymentYear += 1;
+    }
+  }
+  
+  // Gerar datas das parcelas
+  for (let i = 0; i < installments; i++) {
+    const paymentMonth = firstPaymentMonth + i;
+    const paymentYear = firstPaymentYear + Math.floor(paymentMonth / 12);
+    const adjustedMonth = paymentMonth % 12;
+    
+    const paymentDate = new Date(paymentYear, adjustedMonth, paymentDay);
+    dates.push(paymentDate);
+  }
+  
+  return dates;
+}
+
+// Função para gerar UUID
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 export async function createTransaction(analysis: any, supabase: any, userId: string): Promise<string> {
   const currentDate = new Date().toISOString().split('T')[0];
   
   // Validar dados da transação antes de inserir
   if (!analysis.nome_gasto || analysis.nome_gasto.trim() === '') {
-    console.error('Campo nome_gasto está vazio:', analysis);
+    console.error('🔴 Campo nome_gasto está vazio:', analysis);
     throw new Error("Não consegui identificar o nome da transação. Tente ser mais específico.");
   }
 
   if (!analysis.valor_gasto || isNaN(Number(analysis.valor_gasto))) {
-    console.error('Campo valor_gasto inválido:', analysis);
+    console.error('🔴 Campo valor_gasto inválido:', analysis);
     throw new Error("Não consegui identificar o valor da transação. Por favor, informe um valor numérico.");
   }
 
   if (!analysis.tipo_transacao || (analysis.tipo_transacao !== 'entrada' && analysis.tipo_transacao !== 'gasto')) {
-    console.error('Campo tipo_transacao inválido:', analysis);
+    console.error('🔴 Campo tipo_transacao inválido:', analysis);
     throw new Error("Não consegui identificar se é uma receita ou gasto. Tente ser mais claro.");
   }
 
   if (!analysis.categoria || analysis.categoria.trim() === '') {
-    console.error('Campo categoria está vazio:', analysis);
+    console.error('🟡 Campo categoria está vazio, usando padrão:', analysis);
     analysis.categoria = analysis.tipo_transacao === 'entrada' ? 'Outros' : 'Outros';
   }
 
-  // Log dos dados antes de inserir
-  console.log('Dados da transação validados:', JSON.stringify(analysis, null, 2));
+  console.log('🟢 Dados da transação validados:', JSON.stringify(analysis, null, 2));
   
+  // Verificar se é transação de cartão de crédito
+  if (analysis.purchase_date && (analysis.installments > 1 || analysis.is_subscription)) {
+    console.log('💳 Processando transação de cartão de crédito...');
+    
+    // Buscar configurações do cartão de crédito
+    const { data: creditSettings, error: creditError } = await supabase
+      .from('credit_card_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (creditError || !creditSettings || !creditSettings.enabled) {
+      console.log('🟡 Configurações do cartão não encontradas ou desabilitadas, usando configurações padrão');
+      // Usar configurações padrão se não houver configuração do usuário
+      const closingDay = 6;
+      const paymentDay = 10;
+      return await processCreditCardTransaction(analysis, supabase, userId, closingDay, paymentDay);
+    }
+
+    console.log('🟢 Configurações do cartão encontradas:', creditSettings);
+    return await processCreditCardTransaction(analysis, supabase, userId, creditSettings.closing_day, creditSettings.payment_day);
+  }
+  
+  // Processar transação normal (não cartão de crédito)
   if (analysis.is_recorrente && analysis.frequencia) {
-    // Usar data_inicio se fornecida, senão usar data_transacao atual
+    console.log('🔄 Processando transação recorrente...');
     const dataInicio = analysis.data_inicio || analysis.data_transacao || currentDate;
     
     const { data: recorrenciaData, error: recorrenciaError } = await supabase
@@ -47,7 +108,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
       .select();
 
     if (recorrenciaError) {
-      console.error('Erro ao inserir recorrência:', recorrenciaError);
+      console.error('🔴 Erro ao inserir recorrência:', recorrenciaError);
       throw new Error('Erro ao registrar transação recorrente');
     }
 
@@ -107,7 +168,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
         .insert(transacoesToInsert);
 
       if (transacaoError) {
-        console.error('Erro ao inserir transações recorrentes:', transacaoError);
+        console.error('🔴 Erro ao inserir transações recorrentes:', transacaoError);
         throw new Error('Erro ao registrar transações recorrentes');
       }
     }
@@ -119,6 +180,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
 📅 Data de início: ${new Date(dataInicio).toLocaleDateString('pt-BR')}
 🔢 ${transacoesToInsert.length} transações geradas`;
   } else {
+    console.log('💰 Processando transação simples...');
     const { error: transacaoError } = await supabase
       .from('transacoes')
       .insert([{
@@ -132,7 +194,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
       }]);
 
     if (transacaoError) {
-      console.error('Erro ao inserir transação:', transacaoError);
+      console.error('🔴 Erro ao inserir transação:', transacaoError);
       throw new Error('Erro ao registrar transação');
     }
 
@@ -140,6 +202,129 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
 📝 ${analysis.nome_gasto} - ${analysis.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(analysis.valor_gasto).toFixed(2)}
 📂 Categoria: ${analysis.categoria}
 📅 Data: ${new Date(analysis.data_transacao || currentDate).toLocaleDateString('pt-BR')}`;
+  }
+}
+
+async function processCreditCardTransaction(analysis: any, supabase: any, userId: string, closingDay: number, paymentDay: number): Promise<string> {
+  const purchaseDate = new Date(analysis.purchase_date);
+  const recurrenceId = generateUUID();
+  
+  console.log(`💳 Processando compra no cartão:
+    📅 Data da compra: ${purchaseDate.toLocaleDateString('pt-BR')}
+    💰 Valor total: R$ ${analysis.total_amount?.toFixed(2) || analysis.valor_gasto.toFixed(2)}
+    🔢 Parcelas: ${analysis.installments || 1}
+    📅 Dia de fechamento: ${closingDay}
+    📅 Dia de pagamento: ${paymentDay}
+    🆔 ID de agrupamento: ${recurrenceId}`);
+
+  let transactionsToInsert = [];
+
+  if (analysis.is_subscription) {
+    console.log('📺 Processando assinatura mensal...');
+    // Para assinaturas, gerar 12 meses de cobrança
+    const subscriptionDates = calculateCreditCardPaymentDates(purchaseDate, closingDay, paymentDay, 12);
+    
+    for (let i = 0; i < 12; i++) {
+      transactionsToInsert.push({
+        user_id: userId,
+        nome_gasto: analysis.nome_gasto,
+        valor_gasto: Number(analysis.valor_gasto),
+        tipo_transacao: analysis.tipo_transacao,
+        categoria: analysis.categoria,
+        data_transacao: subscriptionDates[i].toISOString().split('T')[0],
+        purchase_date: analysis.purchase_date,
+        total_amount: Number(analysis.valor_gasto), // Para assinaturas, o valor mensal é o total
+        installments: 1,
+        is_subscription: true,
+        recorrencia_id: recurrenceId,
+        is_paid: false,
+      });
+    }
+    
+    console.log(`📺 Geradas 12 cobranças mensais da assinatura`);
+  } else if (analysis.installments > 1) {
+    console.log('🔢 Processando compra parcelada...');
+    // Para compras parceladas
+    const installmentDates = calculateCreditCardPaymentDates(purchaseDate, closingDay, paymentDay, analysis.installments);
+    const installmentValue = analysis.total_amount / analysis.installments;
+    
+    for (let i = 0; i < analysis.installments; i++) {
+      transactionsToInsert.push({
+        user_id: userId,
+        nome_gasto: `${analysis.nome_gasto} (${i + 1}/${analysis.installments})`,
+        valor_gasto: Number(installmentValue.toFixed(2)),
+        tipo_transacao: analysis.tipo_transacao,
+        categoria: analysis.categoria,
+        data_transacao: installmentDates[i].toISOString().split('T')[0],
+        purchase_date: analysis.purchase_date,
+        total_amount: Number(analysis.total_amount),
+        installments: analysis.installments,
+        is_subscription: false,
+        recorrencia_id: recurrenceId,
+        is_paid: false,
+      });
+    }
+    
+    console.log(`🔢 Geradas ${analysis.installments} parcelas de R$ ${installmentValue.toFixed(2)}`);
+  } else {
+    console.log('💳 Processando compra à vista no cartão...');
+    // Compra à vista no cartão
+    const paymentDates = calculateCreditCardPaymentDates(purchaseDate, closingDay, paymentDay, 1);
+    
+    transactionsToInsert.push({
+      user_id: userId,
+      nome_gasto: analysis.nome_gasto,
+      valor_gasto: Number(analysis.valor_gasto),
+      tipo_transacao: analysis.tipo_transacao,
+      categoria: analysis.categoria,
+      data_transacao: paymentDates[0].toISOString().split('T')[0],
+      purchase_date: analysis.purchase_date,
+      total_amount: Number(analysis.valor_gasto),
+      installments: 1,
+      is_subscription: false,
+      recorrencia_id: recurrenceId,
+      is_paid: false,
+    });
+  }
+
+  console.log(`💾 Inserindo ${transactionsToInsert.length} transações no banco de dados...`);
+
+  // Inserir todas as transações em lote
+  const { error: insertError } = await supabase
+    .from('transacoes')
+    .insert(transactionsToInsert);
+
+  if (insertError) {
+    console.error('🔴 Erro ao inserir transações de cartão de crédito:', insertError);
+    throw new Error('Erro ao registrar transações do cartão de crédito');
+  }
+
+  console.log('🟢 Transações de cartão de crédito inseridas com sucesso!');
+
+  // Construir mensagem de resposta
+  if (analysis.is_subscription) {
+    return `✅ Assinatura registrada no cartão de crédito! 
+📝 ${analysis.nome_gasto} - Assinatura mensal de R$ ${Number(analysis.valor_gasto).toFixed(2)}
+💳 Método: Cartão de Crédito
+📂 Categoria: ${analysis.categoria}
+📅 Data da compra: ${new Date(analysis.purchase_date).toLocaleDateString('pt-BR')}
+🔢 12 cobranças mensais geradas
+💳 Primeira cobrança: ${new Date(transactionsToInsert[0].data_transacao).toLocaleDateString('pt-BR')}`;
+  } else if (analysis.installments > 1) {
+    return `✅ Compra parcelada registrada no cartão de crédito! 
+📝 ${analysis.nome_gasto} - R$ ${Number(analysis.total_amount).toFixed(2)} em ${analysis.installments}x
+💳 Método: Cartão de Crédito
+📂 Categoria: ${analysis.categoria}
+📅 Data da compra: ${new Date(analysis.purchase_date).toLocaleDateString('pt-BR')}
+💰 Valor das parcelas: R$ ${Number(analysis.total_amount / analysis.installments).toFixed(2)}
+💳 Primeira parcela: ${new Date(transactionsToInsert[0].data_transacao).toLocaleDateString('pt-BR')}`;
+  } else {
+    return `✅ Compra registrada no cartão de crédito! 
+📝 ${analysis.nome_gasto} - R$ ${Number(analysis.valor_gasto).toFixed(2)}
+💳 Método: Cartão de Crédito
+📂 Categoria: ${analysis.categoria}
+📅 Data da compra: ${new Date(analysis.purchase_date).toLocaleDateString('pt-BR')}
+💳 Data de pagamento: ${new Date(transactionsToInsert[0].data_transacao).toLocaleDateString('pt-BR')}`;
   }
 }
 

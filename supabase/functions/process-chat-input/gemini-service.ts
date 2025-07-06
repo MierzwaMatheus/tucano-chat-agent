@@ -17,6 +17,12 @@ Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninham
 - data_inicio: string (formato YYYY-MM-DD)
 - data_fim: string (formato YYYY-MM-DD, opcional)
 
+**Campos para cartão de crédito:**
+- purchase_date: string (formato YYYY-MM-DD, data da compra)
+- total_amount: number (valor total da compra antes de parcelar)
+- installments: number (número de parcelas)
+- is_subscription: boolean (se é uma assinatura mensal)
+
 **Campos para visualização:**
 - type: "transactions" | "recurring" | "summary"
 - filter: "gastos" | "receitas" | "entradas" | "recorrentes"
@@ -37,21 +43,66 @@ Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninham
   "is_recorrente": false
 }
 
-2. "Mostrar transações recorrentes"
+2. "Comprei um celular de 1200 em 6x no crédito"
+{
+  "action": "create",
+  "nome_gasto": "Celular",
+  "valor_gasto": 200,
+  "tipo_transacao": "gasto",
+  "categoria": "Eletrônicos",
+  "data_transacao": "${new Date().toISOString().split('T')[0]}",
+  "purchase_date": "${new Date().toISOString().split('T')[0]}",
+  "total_amount": 1200,
+  "installments": 6,
+  "is_subscription": false,
+  "is_recorrente": false
+}
+
+3. "Assinei Netflix por 49.90 no crédito"
+{
+  "action": "create",
+  "nome_gasto": "Netflix",
+  "valor_gasto": 49.90,
+  "tipo_transacao": "gasto",
+  "categoria": "Entretenimento",
+  "data_transacao": "${new Date().toISOString().split('T')[0]}",
+  "purchase_date": "${new Date().toISOString().split('T')[0]}",
+  "total_amount": 49.90,
+  "installments": 1,
+  "is_subscription": true,
+  "is_recorrente": false
+}
+
+4. "Parcelei a geladeira em 10x de 150 reais"
+{
+  "action": "create",
+  "nome_gasto": "Geladeira",
+  "valor_gasto": 150,
+  "tipo_transacao": "gasto",
+  "categoria": "Eletrodomésticos",
+  "data_transacao": "${new Date().toISOString().split('T')[0]}",
+  "purchase_date": "${new Date().toISOString().split('T')[0]}",
+  "total_amount": 1500,
+  "installments": 10,
+  "is_subscription": false,
+  "is_recorrente": false
+}
+
+5. "Mostrar transações recorrentes"
 {
   "action": "view",
   "type": "transactions",
   "filter": "recorrentes"
 }
 
-3. "Ver minhas receitas"
+6. "Ver minhas receitas"
 {
   "action": "view",
   "type": "transactions", 
   "filter": "receitas"
 }
 
-4. "Pago Netflix 25 reais mensalmente"
+7. "Pago Netflix 25 reais mensalmente"
 {
   "action": "create",
   "nome_gasto": "Netflix",
@@ -64,40 +115,46 @@ Analise a mensagem do usuário e retorne APENAS um objeto JSON plano sem aninham
   "data_inicio": "${new Date().toISOString().split('T')[0]}"
 }
 
-5. "Alterar o valor da gasolina para 80 reais"
+8. "Alterar o valor da gasolina para 80 reais"
 {
   "action": "edit",
   "nome_gasto": "Gasolina",
   "valor_gasto": 80
 }
 
-6. "Excluir o gasto do cinema"
+9. "Excluir o gasto do cinema"
 {
   "action": "delete",
   "nome_gasto": "Cinema",
   "target_type": "transacao"
 }
 
-7. "Remover a recorrência do Netflix"
+10. "Remover a recorrência do Netflix"
 {
   "action": "delete",
   "nome_gasto": "Netflix",
   "target_type": "recorrencia"
 }
 
-8. "Deletar minha assinatura do Spotify"
+11. "Deletar minha assinatura do Spotify"
 {
   "action": "delete",
   "nome_gasto": "Spotify",
   "target_type": "recorrencia"
 }
 
-9. "Apagar o gasto de R$ 50 no mercado"
+12. "Apagar o gasto de R$ 50 no mercado"
 {
   "action": "delete",
   "nome_gasto": "Mercado",
   "target_type": "transacao"
 }
+
+**IMPORTANTE para cartão de crédito:**
+- Quando detectar menções de "crédito", "parcelado", "parcelas", "x vezes", "assinatura", sempre inclua os campos de cartão de crédito
+- Para compras parceladas, calcule o valor da parcela (total_amount / installments)
+- Para assinaturas, marque is_subscription: true e installments: 1
+- Sempre inclua purchase_date quando for transação de crédito
 
 **IMPORTANTE para exclusões:** 
 - Quando detectar intenção de exclusão/remoção/deletar, sempre use "action": "delete"
