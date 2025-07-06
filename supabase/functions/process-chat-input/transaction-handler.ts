@@ -1,4 +1,3 @@
-
 import { supabase } from './gemini-service.ts';
 import { TransactionData, RecurrenceData } from './types.ts';
 import { normalizeTransactionData } from './data-normalizer.ts';
@@ -63,12 +62,38 @@ export async function createTransaction(analysis: any, supabaseClient: any, user
     // Normalizar dados
     const normalizedData = normalizeTransactionData(analysis);
     
-    // Preparar transação
+    // Filtrar apenas os campos que são colunas válidas da tabela transacoes
+    // Remove campos de controle como 'action' que não devem ser salvos no banco
+    const {
+      action,
+      type,
+      filter,
+      target_type,
+      frequencia,
+      data_inicio,
+      data_fim,
+      ...validTransactionFields
+    } = normalizedData;
+
+    // Preparar transação com apenas campos válidos da tabela
     const transactionData = {
-      ...normalizedData,
+      nome_gasto: validTransactionFields.nome_gasto,
+      valor_gasto: validTransactionFields.valor_gasto,
+      tipo_transacao: validTransactionFields.tipo_transacao,
+      categoria: validTransactionFields.categoria,
+      data_transacao: validTransactionFields.data_transacao,
+      is_recorrente: validTransactionFields.is_recorrente || false,
       user_id: userId,
-      is_paid: normalizedData.tipo_transacao === 'entrada' ? true : false,
+      is_paid: validTransactionFields.tipo_transacao === 'entrada' ? true : false,
+      // Campos de cartão de crédito (opcionais)
+      purchase_date: validTransactionFields.purchase_date || null,
+      total_amount: validTransactionFields.total_amount || null,
+      installments: validTransactionFields.installments || null,
+      is_subscription: validTransactionFields.is_subscription || false,
+      transaction_group_id: validTransactionFields.transaction_group_id || null,
     };
+
+    console.log('Transaction data to insert:', JSON.stringify(transactionData, null, 2));
 
     // Se for recorrente, criar recorrência primeiro
     if (normalizedData.is_recorrente) {
@@ -77,9 +102,9 @@ export async function createTransaction(analysis: any, supabaseClient: any, user
         valor_recorrencia: normalizedData.valor_gasto,
         tipo_transacao: normalizedData.tipo_transacao,
         categoria: normalizedData.categoria,
-        frequencia: normalizedData.frequencia || 'mensal',
-        data_inicio: normalizedData.data_inicio || normalizedData.data_transacao,
-        data_fim: normalizedData.data_fim,
+        frequencia: frequencia || 'mensal',
+        data_inicio: data_inicio || normalizedData.data_transacao,
+        data_fim: data_fim || null,
         user_id: userId,
       };
 
@@ -184,7 +209,7 @@ export async function editTransaction(analysis: any, supabaseClient: any, userId
 
     const transaction = transactions[0];
 
-    // Preparar dados para atualização
+    // Preparar dados para atualização - apenas campos válidos da tabela
     const updateData: any = {};
     
     if (analysis.valor_gasto !== undefined) {
@@ -320,10 +345,32 @@ export async function handleFallbackTransaction(message: string, supabaseClient:
     // Normalizar e criar transação usando o fallback
     const normalizedData = normalizeTransactionData(fallbackAnalysis);
     
+    // Filtrar apenas campos válidos da tabela transacoes
+    const {
+      action,
+      type,
+      filter,
+      target_type,
+      frequencia,
+      data_inicio,
+      data_fim,
+      ...validTransactionFields
+    } = normalizedData;
+    
     const transactionData = {
-      ...normalizedData,
+      nome_gasto: validTransactionFields.nome_gasto,
+      valor_gasto: validTransactionFields.valor_gasto,
+      tipo_transacao: validTransactionFields.tipo_transacao,
+      categoria: validTransactionFields.categoria,
+      data_transacao: validTransactionFields.data_transacao,
+      is_recorrente: validTransactionFields.is_recorrente || false,
       user_id: userId,
-      is_paid: normalizedData.tipo_transacao === 'entrada' ? true : false,
+      is_paid: validTransactionFields.tipo_transacao === 'entrada' ? true : false,
+      purchase_date: validTransactionFields.purchase_date || null,
+      total_amount: validTransactionFields.total_amount || null,
+      installments: validTransactionFields.installments || null,
+      is_subscription: validTransactionFields.is_subscription || false,
+      transaction_group_id: validTransactionFields.transaction_group_id || null,
     };
 
     const { error: transactionError } = await supabaseClient
