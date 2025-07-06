@@ -114,9 +114,9 @@ export type Database = {
           is_subscription: boolean | null
           nome_gasto: string
           purchase_date: string | null
-          recorrencia_id: string | null
           tipo_transacao: string
           total_amount: number | null
+          transaction_group_id: string | null
           user_id: string
           valor_gasto: number
         }
@@ -131,9 +131,9 @@ export type Database = {
           is_subscription?: boolean | null
           nome_gasto: string
           purchase_date?: string | null
-          recorrencia_id?: string | null
           tipo_transacao: string
           total_amount?: number | null
+          transaction_group_id?: string | null
           user_id: string
           valor_gasto: number
         }
@@ -148,21 +148,13 @@ export type Database = {
           is_subscription?: boolean | null
           nome_gasto?: string
           purchase_date?: string | null
-          recorrencia_id?: string | null
           tipo_transacao?: string
           total_amount?: number | null
+          transaction_group_id?: string | null
           user_id?: string
           valor_gasto?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "transacoes_recorrencia_id_fkey"
-            columns: ["recorrencia_id"]
-            isOneToOne: false
-            referencedRelation: "recorrencias"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

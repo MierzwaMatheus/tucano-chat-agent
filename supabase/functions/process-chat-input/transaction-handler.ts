@@ -1,3 +1,4 @@
+
 import { normalizeTransactionData } from './data-normalizer.ts';
 
 // Função para calcular datas de pagamento do cartão de crédito
@@ -134,7 +135,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
         categoria: analysis.categoria,
         data_transacao: currentTransactionDate.toISOString().split('T')[0],
         is_recorrente: true,
-        recorrencia_id: recorrenciaData[0].id,
+        transaction_group_id: recorrenciaData[0].id,
       });
 
       // Avança currentTransactionDate para a próxima ocorrência baseado na frequência
@@ -207,7 +208,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
 
 async function processCreditCardTransaction(analysis: any, supabase: any, userId: string, closingDay: number, paymentDay: number): Promise<string> {
   const purchaseDate = new Date(analysis.purchase_date);
-  const recurrenceId = generateUUID();
+  const transactionGroupId = generateUUID();
   
   console.log(`💳 Processando compra no cartão:
     📅 Data da compra: ${purchaseDate.toLocaleDateString('pt-BR')}
@@ -215,7 +216,7 @@ async function processCreditCardTransaction(analysis: any, supabase: any, userId
     🔢 Parcelas: ${analysis.installments || 1}
     📅 Dia de fechamento: ${closingDay}
     📅 Dia de pagamento: ${paymentDay}
-    🆔 ID de agrupamento: ${recurrenceId}`);
+    🆔 ID de agrupamento: ${transactionGroupId}`);
 
   let transactionsToInsert = [];
 
@@ -236,7 +237,7 @@ async function processCreditCardTransaction(analysis: any, supabase: any, userId
         total_amount: Number(analysis.valor_gasto), // Para assinaturas, o valor mensal é o total
         installments: 1,
         is_subscription: true,
-        recorrencia_id: recurrenceId,
+        transaction_group_id: transactionGroupId,
         is_paid: false,
       });
     }
@@ -260,7 +261,7 @@ async function processCreditCardTransaction(analysis: any, supabase: any, userId
         total_amount: Number(analysis.total_amount),
         installments: analysis.installments,
         is_subscription: false,
-        recorrencia_id: recurrenceId,
+        transaction_group_id: transactionGroupId,
         is_paid: false,
       });
     }
@@ -282,7 +283,7 @@ async function processCreditCardTransaction(analysis: any, supabase: any, userId
       total_amount: Number(analysis.valor_gasto),
       installments: 1,
       is_subscription: false,
-      recorrencia_id: recurrenceId,
+      transaction_group_id: transactionGroupId,
       is_paid: false,
     });
   }
@@ -411,7 +412,7 @@ Tente ser mais específico, por exemplo:
     const transacaoAtualizada = updatedData[0];
 
     // Se a transação for recorrente, atualizar também a recorrência
-    if (transacao.is_recorrente && transacao.recorrencia_id) {
+    if (transacao.is_recorrente && transacao.transaction_group_id) {
       const recorrenciaUpdateData: any = {};
       
       if (updateData.valor_gasto) {
@@ -428,7 +429,7 @@ Tente ser mais específico, por exemplo:
         const { error: recorrenciaError } = await supabase
           .from('recorrencias')
           .update(recorrenciaUpdateData)
-          .eq('id', transacao.recorrencia_id)
+          .eq('id', transacao.transaction_group_id)
           .eq('user_id', userId);
 
         if (recorrenciaError) {
@@ -516,7 +517,7 @@ Tente ser mais específico ou verifique se o nome está correto. Você pode usar
         .from('transacoes')
         .delete()
         .eq('user_id', userId)
-        .eq('recorrencia_id', item.id);
+        .eq('transaction_group_id', item.id);
 
       if (deleteTransactionsError) {
         console.error('Erro ao excluir transações da recorrência:', deleteTransactionsError);

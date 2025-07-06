@@ -69,17 +69,17 @@ export const useCreditCardData = () => {
             .sort()[0]
         : null;
 
-      // Contar parcelas ativas (recurrence_ids únicos)
-      const activeRecurrenceIds = new Set(
+      // Contar parcelas ativas (transaction_group_ids únicos)
+      const activeTransactionGroupIds = new Set(
         creditTransactions
-          ?.filter(t => t.recorrencia_id && !t.is_paid)
-          .map(t => t.recorrencia_id) || []
+          ?.filter(t => t.transaction_group_id && !t.is_paid)
+          .map(t => t.transaction_group_id) || []
       );
 
       setSummary({
         currentInvoice,
         nextPaymentDate,
-        activeInstallments: activeRecurrenceIds.size,
+        activeInstallments: activeTransactionGroupIds.size,
       });
 
     } catch (error) {
