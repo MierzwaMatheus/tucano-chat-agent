@@ -1,90 +1,75 @@
 
 import React, { useState } from 'react';
-import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, Repeat } from 'lucide-react';
+import { Search, Filter, ArrowUpCircle, ArrowDownCircle, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { useTransactionFilters, NormalizedTransaction } from '@/hooks/useTransactionFilters';
 import { TransactionCard } from '@/components/ui/bauhaus-card';
 import { EditTransactionModal } from '@/components/EditTransactionModal';
 import { DeleteTransactionDialog } from '@/components/DeleteTransactionDialog';
-import { CreditCardSummary } from '@/components/CreditCardSummary';
+import { CreditCardSummaryCard } from '@/components/CreditCardSummaryCard';
+import { MonthSelector } from '@/components/MonthSelector';
+import { useMonthSelector } from '@/hooks/useMonthSelector';
+import { useMonthlyTransactions } from '@/hooks/useMonthlyTransactions';
+import { NormalizedTransaction } from '@/hooks/useTransactionFilters';
 
 export const TransactionsList = () => {
-  const {
-    filters,
-    updateFilters,
-    paginatedData,
-    loading,
-    availableCategories,
-    changePage,
-    refetch
-  } = useTransactionFilters();
-
   const [showFilters, setShowFilters] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<NormalizedTransaction | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  const { 
+    selectedMonth, 
+    setSelectedMonth, 
+    getMonthOptions 
+  } = useMonthSelector();
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
+  const { 
+    transactions, 
+    creditCardSummary, 
+    loading, 
+    refetch 
+  } = useMonthlyTransactions(selectedMonth);
 
-  const getTransactionIcon = (tipo: 'entrada' | 'gasto', isRecurrent?: boolean) => {
-    if (isRecurrent) {
-      return <Repeat className="h-4 w-4 text-blue-500" />;
-    }
-    return tipo === 'entrada' 
-      ? <ArrowUpCircle className="h-4 w-4 text-green-500" />
-      : <ArrowDownCircle className="h-4 w-4 text-red-500" />;
-  };
-
-  const handleTabChange = (value: string) => {
-    const typeMap: Record<string, 'entrada' | 'gasto' | 'all'> = {
-      'all': 'all',
-      'entradas': 'entrada',
-      'gastos': 'gasto',
-      'recorrentes': 'all'
-    };
+  // Filtrar transações
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = searchTerm === '' || 
+      transaction.nome_gasto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.categoria.toLowerCase().includes(searchTerm.toLowerCase());
     
-    updateFilters({
-      transactionType: typeMap[value],
-      showRecurrentOnly: value === 'recorrentes',
-      showCreditOnly: false
-    });
-  };
+    const matchesCategory = selectedCategories.length === 0 || 
+      selectedCategories.includes(transaction.categoria);
+    
+    return matchesSearch && matchesCategory;
+  });
+
+  // Separar por tipo
+  const entradas = filteredTransactions.filter(t => t.tipo_transacao === 'entrada');
+  const gastos = filteredTransactions.filter(t => t.tipo_transacao === 'gasto');
+  const recorrentes = filteredTransactions.filter(t => t.isRecurrent);
+
+  // Categorias disponíveis
+  const availableCategories = Array.from(new Set(transactions.map(t => t.categoria)));
 
   const handleCategoryFilter = (category: string) => {
-    const updatedCategories = filters.categories.includes(category)
-      ? filters.categories.filter(c => c !== category)
-      : [...filters.categories, category];
-    
-    updateFilters({ categories: updatedCategories });
+    const updated = selectedCategories.includes(category)
+      ? selectedCategories.filter(c => c !== category)
+      : [...selectedCategories, category];
+    setSelectedCategories(updated);
   };
 
   const clearFilters = () => {
-    updateFilters({
-      searchTerm: '',
-      categories: [],
-      dateRange: {},
-      showRecurrentOnly: false,
-      showCreditOnly: false
-    });
+    setSearchTerm('');
+    setSelectedCategories([]);
   };
 
   const handleEdit = (id: string) => {
-    const transaction = paginatedData.transactions.find(t => t.id === id);
+    const transaction = transactions.find(t => t.id === id);
     if (transaction) {
       setSelectedTransaction(transaction);
       setEditModalOpen(true);
@@ -92,7 +77,7 @@ export const TransactionsList = () => {
   };
 
   const handleDelete = (id: string) => {
-    const transaction = paginatedData.transactions.find(t => t.id === id);
+    const transaction = transactions.find(t => t.id === id);
     if (transaction) {
       setSelectedTransaction(transaction);
       setDeleteDialogOpen(true);
@@ -109,22 +94,32 @@ export const TransactionsList = () => {
     setSelectedTransaction(null);
   };
 
+  const handleViewCreditDetails = () => {
+    // Navegar para a aba de crédito
+    const event = new CustomEvent('navigate-to-credit');
+    window.dispatchEvent(event);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Minhas Transações</h2>
-        <Button
-          variant="outline"
-          onClick={() => setShowFilters(!showFilters)}
-          className="glass border-white/20"
-        >
-          <Filter className="h-4 w-4 mr-2" />
-          Filtros
-        </Button>
+        <div className="flex items-center gap-4">
+          <MonthSelector
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+            options={getMonthOptions()}
+          />
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="glass border-white/20"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filtros
+          </Button>
+        </div>
       </div>
-
-      {/* Credit Card Summary */}
-      <CreditCardSummary />
 
       {/* Filters Section */}
       {showFilters && (
@@ -138,40 +133,10 @@ export const TransactionsList = () => {
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Buscar transações..."
-                value={filters.searchTerm}
-                onChange={(e) => updateFilters({ searchTerm: e.target.value })}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 glass border-white/20"
               />
-            </div>
-
-            {/* Date Range */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-2 block">
-                  Data Início
-                </label>
-                <Input
-                  type="date"
-                  value={filters.dateRange.start || ''}
-                  onChange={(e) => updateFilters({ 
-                    dateRange: { ...filters.dateRange, start: e.target.value }
-                  })}
-                  className="glass border-white/20"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-2 block">
-                  Data Fim
-                </label>
-                <Input
-                  type="date"
-                  value={filters.dateRange.end || ''}
-                  onChange={(e) => updateFilters({ 
-                    dateRange: { ...filters.dateRange, end: e.target.value }
-                  })}
-                  className="glass border-white/20"
-                />
-              </div>
             </div>
 
             {/* Categories */}
@@ -183,7 +148,7 @@ export const TransactionsList = () => {
                 {availableCategories.map(category => (
                   <Badge
                     key={category}
-                    variant={filters.categories.includes(category) ? "default" : "outline"}
+                    variant={selectedCategories.includes(category) ? "default" : "outline"}
                     className="cursor-pointer hover:bg-tucano-500 hover:text-white transition-colors"
                     onClick={() => handleCategoryFilter(category)}
                   >
@@ -203,8 +168,16 @@ export const TransactionsList = () => {
         </Card>
       )}
 
+      {/* Credit Card Summary Card */}
+      {creditCardSummary && (
+        <CreditCardSummaryCard
+          summary={creditCardSummary}
+          onViewDetails={handleViewCreditDetails}
+        />
+      )}
+
       {/* Tabs */}
-      <Tabs defaultValue="all" onValueChange={handleTabChange}>
+      <Tabs defaultValue="all">
         <TabsList className="glass border-white/20 backdrop-blur-lg">
           <TabsTrigger value="all">Todas</TabsTrigger>
           <TabsTrigger value="entradas">Entradas</TabsTrigger>
@@ -214,7 +187,7 @@ export const TransactionsList = () => {
 
         <TabsContent value="all" className="space-y-4">
           <TransactionGrid 
-            transactions={paginatedData.transactions}
+            transactions={filteredTransactions}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
@@ -223,7 +196,7 @@ export const TransactionsList = () => {
 
         <TabsContent value="entradas" className="space-y-4">
           <TransactionGrid 
-            transactions={paginatedData.transactions}
+            transactions={entradas}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
@@ -232,7 +205,7 @@ export const TransactionsList = () => {
 
         <TabsContent value="gastos" className="space-y-4">
           <TransactionGrid 
-            transactions={paginatedData.transactions}
+            transactions={gastos}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
@@ -241,58 +214,13 @@ export const TransactionsList = () => {
 
         <TabsContent value="recorrentes" className="space-y-4">
           <TransactionGrid 
-            transactions={paginatedData.transactions}
+            transactions={recorrentes}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
           />
         </TabsContent>
       </Tabs>
-
-      {/* Pagination */}
-      {paginatedData.totalPages > 1 && (
-        <div className="flex justify-center">
-          <Pagination>
-            <PaginationContent>
-              {paginatedData.page > 1 && (
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => changePage(paginatedData.page - 1)}
-                    className="cursor-pointer"
-                  />
-                </PaginationItem>
-              )}
-              
-              {Array.from({ length: Math.min(5, paginatedData.totalPages) }, (_, i) => {
-                const pageNumber = i + Math.max(1, paginatedData.page - 2);
-                if (pageNumber <= paginatedData.totalPages) {
-                  return (
-                    <PaginationItem key={pageNumber}>
-                      <PaginationLink
-                        onClick={() => changePage(pageNumber)}
-                        isActive={pageNumber === paginatedData.page}
-                        className="cursor-pointer"
-                      >
-                        {pageNumber}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                }
-                return null;
-              })}
-              
-              {paginatedData.page < paginatedData.totalPages && (
-                <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => changePage(paginatedData.page + 1)}
-                    className="cursor-pointer"
-                  />
-                </PaginationItem>
-              )}
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
 
       {/* Edit Modal */}
       <EditTransactionModal

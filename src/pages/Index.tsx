@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChatInterface } from '@/components/ChatInterface';
 import { Dashboard } from '@/components/Dashboard';
 import { TransactionsList } from '@/components/TransactionsList';
@@ -9,6 +9,19 @@ import Settings from '@/pages/Settings';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'transactions' | 'credit' | 'settings'>('chat');
+
+  // Escutar evento de navegação para crédito
+  useEffect(() => {
+    const handleNavigateToCredit = () => {
+      setActiveTab('credit');
+    };
+
+    window.addEventListener('navigate-to-credit', handleNavigateToCredit);
+    
+    return () => {
+      window.removeEventListener('navigate-to-credit', handleNavigateToCredit);
+    };
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
