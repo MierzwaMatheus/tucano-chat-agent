@@ -33,6 +33,36 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_card_settings: {
+        Row: {
+          closing_day: number | null
+          created_at: string
+          enabled: boolean | null
+          id: string
+          payment_day: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closing_day?: number | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          payment_day?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closing_day?: number | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          payment_day?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recorrencias: {
         Row: {
           categoria: string
@@ -78,10 +108,15 @@ export type Database = {
           created_at: string
           data_transacao: string
           id: string
+          installments: number | null
+          is_paid: boolean | null
           is_recorrente: boolean | null
+          is_subscription: boolean | null
           nome_gasto: string
+          purchase_date: string | null
           recorrencia_id: string | null
           tipo_transacao: string
+          total_amount: number | null
           user_id: string
           valor_gasto: number
         }
@@ -90,10 +125,15 @@ export type Database = {
           created_at?: string
           data_transacao: string
           id?: string
+          installments?: number | null
+          is_paid?: boolean | null
           is_recorrente?: boolean | null
+          is_subscription?: boolean | null
           nome_gasto: string
+          purchase_date?: string | null
           recorrencia_id?: string | null
           tipo_transacao: string
+          total_amount?: number | null
           user_id: string
           valor_gasto: number
         }
@@ -102,10 +142,15 @@ export type Database = {
           created_at?: string
           data_transacao?: string
           id?: string
+          installments?: number | null
+          is_paid?: boolean | null
           is_recorrente?: boolean | null
+          is_subscription?: boolean | null
           nome_gasto?: string
+          purchase_date?: string | null
           recorrencia_id?: string | null
           tipo_transacao?: string
+          total_amount?: number | null
           user_id?: string
           valor_gasto?: number
         }
