@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -371,11 +372,11 @@ export const useTransactions = () => {
     // Prepare data for category trend chart
     const categoryTrend = transactions.reduce((acc, transaction) => {
       const date = new Date(transaction.data_transacao).toISOString().split('T')[0];
-      const valor = transaction.tipo_transacao === 'gasto' ? transaction.valor_gasto : 0;
+      const valor = transaction.tipo_transacao === 'gasto' ? Number(transaction.valor_gasto) : 0;
       
       const existingDate = acc.find(item => item.date === date);
       if (existingDate) {
-        existingDate[transaction.categoria] = (existingDate[transaction.categoria] || 0) + valor;
+        existingDate[transaction.categoria] = (Number(existingDate[transaction.categoria]) || 0) + valor;
       } else {
         acc.push({
           date,
@@ -416,12 +417,12 @@ export const useTransactions = () => {
         const existingTransaction = acc.find(item => item.nome === transaction.nome_gasto);
         if (existingTransaction) {
           existingTransaction.frequencia += 1;
-          existingTransaction.valor = Math.max(existingTransaction.valor, transaction.valor_gasto);
+          existingTransaction.valor = Math.max(existingTransaction.valor, Number(transaction.valor_gasto));
         } else {
           acc.push({
             nome: transaction.nome_gasto,
             frequencia: 1,
-            valor: transaction.valor_gasto,
+            valor: Number(transaction.valor_gasto),
           });
         }
         return acc;

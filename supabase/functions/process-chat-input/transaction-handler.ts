@@ -1,3 +1,4 @@
+
 import { normalizeTransactionData } from './data-normalizer.ts';
 
 export async function createTransaction(analysis: any, supabase: any, userId: string): Promise<string> {
@@ -28,6 +29,9 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
   console.log('Dados da transação validados:', JSON.stringify(analysis, null, 2));
   
   if (analysis.is_recorrente && analysis.frequencia) {
+    // Usar data_inicio se fornecida, senão usar data_transacao atual
+    const dataInicio = analysis.data_inicio || analysis.data_transacao || currentDate;
+    
     const { data: recorrenciaData, error: recorrenciaError } = await supabase
       .from('recorrencias')
       .insert([{
@@ -37,7 +41,7 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
         tipo_transacao: analysis.tipo_transacao,
         categoria: analysis.categoria,
         frequencia: analysis.frequencia,
-        data_inicio: analysis.data_inicio || currentDate,
+        data_inicio: dataInicio,
         data_fim: analysis.data_fim || null,
       }])
       .select();
@@ -47,28 +51,73 @@ export async function createTransaction(analysis: any, supabase: any, userId: st
       throw new Error('Erro ao registrar transação recorrente');
     }
 
-    const { error: transacaoError } = await supabase
-      .from('transacoes')
-      .insert([{
+    // Gerar transações futuras a partir da data de início
+    const transacoesToInsert = [];
+    let currentTransactionDate = new Date(dataInicio);
+    const endDate = analysis.data_fim ? new Date(analysis.data_fim) : null;
+    const maxIterations = 24; // Limite de 24 iterações para evitar loops infinitos
+    let iterations = 0;
+
+    while (iterations < maxIterations) {
+      // Para se a data atual exceder a data de fim
+      if (endDate && currentTransactionDate > endDate) {
+        break;
+      }
+
+      // Adiciona a transação para a data atual
+      transacoesToInsert.push({
         user_id: userId,
         nome_gasto: analysis.nome_gasto,
         valor_gasto: Number(analysis.valor_gasto),
         tipo_transacao: analysis.tipo_transacao,
         categoria: analysis.categoria,
-        data_transacao: analysis.data_transacao || currentDate,
+        data_transacao: currentTransactionDate.toISOString().split('T')[0],
         is_recorrente: true,
         recorrencia_id: recorrenciaData[0].id,
-      }]);
+      });
 
-    if (transacaoError) {
-      console.error('Erro ao inserir transação:', transacaoError);
-      throw new Error('Erro ao registrar transação');
+      // Avança currentTransactionDate para a próxima ocorrência baseado na frequência
+      switch (analysis.frequencia.toLowerCase()) {
+        case 'diaria':
+        case 'diário':
+          currentTransactionDate.setDate(currentTransactionDate.getDate() + 1);
+          break;
+        case 'semanal':
+          currentTransactionDate.setDate(currentTransactionDate.getDate() + 7);
+          break;
+        case 'mensal':
+          currentTransactionDate.setMonth(currentTransactionDate.getMonth() + 1);
+          break;
+        case 'anual':
+          currentTransactionDate.setFullYear(currentTransactionDate.getFullYear() + 1);
+          break;
+        default:
+          // Se a frequência não for reconhecida, assume mensal
+          currentTransactionDate.setMonth(currentTransactionDate.getMonth() + 1);
+          break;
+      }
+
+      iterations++;
+    }
+
+    // Inserir todas as transações geradas
+    if (transacoesToInsert.length > 0) {
+      const { error: transacaoError } = await supabase
+        .from('transacoes')
+        .insert(transacoesToInsert);
+
+      if (transacaoError) {
+        console.error('Erro ao inserir transações recorrentes:', transacaoError);
+        throw new Error('Erro ao registrar transações recorrentes');
+      }
     }
 
     return `✅ Transação recorrente registrada! 
 📝 ${analysis.nome_gasto} - ${analysis.tipo_transacao === 'entrada' ? 'Receita' : 'Gasto'} de R$ ${Number(analysis.valor_gasto).toFixed(2)}
 🔄 Frequência: ${analysis.frequencia}
-📂 Categoria: ${analysis.categoria}`;
+📂 Categoria: ${analysis.categoria}
+📅 Data de início: ${new Date(dataInicio).toLocaleDateString('pt-BR')}
+🔢 ${transacoesToInsert.length} transações geradas`;
   } else {
     const { error: transacaoError } = await supabase
       .from('transacoes')

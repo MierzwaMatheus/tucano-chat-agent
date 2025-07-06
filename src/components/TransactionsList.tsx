@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { useTransactionFilters } from '@/hooks/useTransactionFilters';
-import { Transaction, Recurrence } from '@/hooks/useTransactions';
+import { useTransactionFilters, NormalizedTransaction } from '@/hooks/useTransactionFilters';
 import { TransactionCard } from '@/components/ui/bauhaus-card';
+import { EditTransactionModal } from '@/components/EditTransactionModal';
+import { DeleteTransactionDialog } from '@/components/DeleteTransactionDialog';
 
 export const TransactionsList = () => {
   const {
@@ -18,10 +20,14 @@ export const TransactionsList = () => {
     paginatedData,
     loading,
     availableCategories,
-    changePage
+    changePage,
+    refetch
   } = useTransactionFilters();
 
   const [showFilters, setShowFilters] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<NormalizedTransaction | null>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -72,6 +78,32 @@ export const TransactionsList = () => {
       dateRange: {},
       showRecurrentOnly: false
     });
+  };
+
+  const handleEdit = (id: string) => {
+    const transaction = paginatedData.transactions.find(t => t.id === id);
+    if (transaction) {
+      setSelectedTransaction(transaction);
+      setEditModalOpen(true);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    const transaction = paginatedData.transactions.find(t => t.id === id);
+    if (transaction) {
+      setSelectedTransaction(transaction);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const handleTransactionUpdated = () => {
+    refetch();
+    setSelectedTransaction(null);
+  };
+
+  const handleTransactionDeleted = () => {
+    refetch();
+    setSelectedTransaction(null);
   };
 
   return (
@@ -178,6 +210,8 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
 
@@ -185,6 +219,8 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
 
@@ -192,6 +228,8 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
 
@@ -199,6 +237,8 @@ export const TransactionsList = () => {
           <TransactionGrid 
             transactions={paginatedData.transactions}
             loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
       </Tabs>
@@ -247,18 +287,38 @@ export const TransactionsList = () => {
           </Pagination>
         </div>
       )}
+
+      {/* Edit Modal */}
+      <EditTransactionModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        transaction={selectedTransaction}
+        onTransactionUpdated={handleTransactionUpdated}
+      />
+
+      {/* Delete Dialog */}
+      <DeleteTransactionDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        transaction={selectedTransaction}
+        onTransactionDeleted={handleTransactionDeleted}
+      />
     </div>
   );
 };
 
 interface TransactionGridProps {
-  transactions: (Transaction | Recurrence)[];
+  transactions: NormalizedTransaction[];
   loading: boolean;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 const TransactionGrid: React.FC<TransactionGridProps> = ({
   transactions,
   loading,
+  onEdit,
+  onDelete,
 }) => {
   if (loading) {
     return (
@@ -296,9 +356,9 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
           categoria={transaction.categoria}
           valor_gasto={transaction.valor_gasto}
           data_transacao={transaction.data_transacao}
-          isRecurrent={'isRecurrent' in transaction ? transaction.isRecurrent : false}
-          onEdit={(id) => console.log('Edit transaction:', id)}
-          onDelete={(id) => console.log('Delete transaction:', id)}
+          isRecurrent={transaction.isRecurrent}
+          onEdit={onEdit}
+          onDelete={onDelete}
         />
       ))}
     </div>

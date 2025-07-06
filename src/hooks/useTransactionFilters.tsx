@@ -15,8 +15,20 @@ export interface TransactionFilters {
   transactionType?: 'entrada' | 'gasto' | 'all';
 }
 
+// Extended type that normalizes the differences between Transaction and Recurrence
+export interface NormalizedTransaction {
+  id: string;
+  nome_gasto: string;
+  valor_gasto: number;
+  tipo_transacao: 'entrada' | 'gasto';
+  categoria: string;
+  data_transacao: string;
+  isRecurrent: boolean;
+  created_at?: string;
+}
+
 export interface PaginatedTransactions {
-  transactions: (Transaction | Recurrence)[];
+  transactions: NormalizedTransaction[];
   total: number;
   page: number;
   totalPages: number;
@@ -75,6 +87,30 @@ export const useTransactionFilters = () => {
     fetchCategories();
   }, [user]);
 
+  // Normalize transaction data to have consistent properties
+  const normalizeTransaction = (item: any): NormalizedTransaction => ({
+    id: item.id,
+    nome_gasto: item.nome_gasto,
+    valor_gasto: Number(item.valor_gasto),
+    tipo_transacao: item.tipo_transacao as 'entrada' | 'gasto',
+    categoria: item.categoria,
+    data_transacao: item.data_transacao,
+    isRecurrent: false,
+    created_at: item.created_at
+  });
+
+  // Normalize recurrence data to have consistent properties
+  const normalizeRecurrence = (item: any): NormalizedTransaction => ({
+    id: item.id,
+    nome_gasto: item.nome_recorrencia,
+    valor_gasto: Number(item.valor_recorrencia),
+    tipo_transacao: item.tipo_transacao as 'entrada' | 'gasto',
+    categoria: item.categoria,
+    data_transacao: item.data_inicio,
+    isRecurrent: true,
+    created_at: item.created_at
+  });
+
   // Fetch filtered transactions
   const fetchFilteredTransactions = async (page: number = 1) => {
     if (!user) return;
@@ -117,18 +153,14 @@ export const useTransactionFilters = () => {
         recurrencesQuery = recurrencesQuery.lte('data_inicio', filters.dateRange.end);
       }
 
-      let allTransactions: (Transaction | Recurrence)[] = [];
+      let allTransactions: NormalizedTransaction[] = [];
 
       if (!filters.showRecurrentOnly) {
         const { data: transactions } = await transactionsQuery
           .order('data_transacao', { ascending: false });
         
         if (transactions) {
-          allTransactions = [...allTransactions, ...transactions.map(t => ({
-            ...t,
-            tipo_transacao: t.tipo_transacao as 'entrada' | 'gasto',
-            isRecurrent: false
-          }))];
+          allTransactions = [...allTransactions, ...transactions.map(normalizeTransaction)];
         }
       }
 
@@ -138,14 +170,7 @@ export const useTransactionFilters = () => {
           .order('data_inicio', { ascending: false });
         
         if (recurrences) {
-          allTransactions = [...allTransactions, ...recurrences.map(r => ({
-            ...r,
-            nome_gasto: r.nome_recorrencia,
-            valor_gasto: r.valor_recorrencia,
-            data_transacao: r.data_inicio,
-            tipo_transacao: r.tipo_transacao as 'entrada' | 'gasto',
-            isRecurrent: true
-          }))];
+          allTransactions = [...allTransactions, ...recurrences.map(normalizeRecurrence)];
         }
       }
 
@@ -193,6 +218,7 @@ export const useTransactionFilters = () => {
     paginatedData,
     loading,
     availableCategories,
-    changePage
+    changePage,
+    refetch: () => fetchFilteredTransactions(paginatedData.page)
   };
 };
