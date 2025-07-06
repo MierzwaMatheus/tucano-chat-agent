@@ -155,8 +155,8 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
           .select('*')
           .eq('user_id', user.id)
           .not('purchase_date', 'is', null)
-          .gte('purchase_date', invoiceStartDate.toISOString().split('T')[0])
-          .lte('purchase_date', invoiceEndDate.toISOString().split('T')[0]);
+          .gte('data_transacao', invoiceStartDate.toISOString().split('T')[0])
+          .lte('data_transacao', invoiceEndDate.toISOString().split('T')[0]);
 
         if (creditError) throw creditError;
 
