@@ -33,6 +33,36 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_card_settings: {
+        Row: {
+          closing_day: number | null
+          created_at: string
+          enabled: boolean | null
+          id: string
+          payment_day: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closing_day?: number | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          payment_day?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closing_day?: number | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          payment_day?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recorrencias: {
         Row: {
           categoria: string
@@ -78,10 +108,15 @@ export type Database = {
           created_at: string
           data_transacao: string
           id: string
+          installments: number | null
+          is_paid: boolean | null
           is_recorrente: boolean | null
+          is_subscription: boolean | null
           nome_gasto: string
-          recorrencia_id: string | null
+          purchase_date: string | null
           tipo_transacao: string
+          total_amount: number | null
+          transaction_group_id: string | null
           user_id: string
           valor_gasto: number
         }
@@ -90,10 +125,15 @@ export type Database = {
           created_at?: string
           data_transacao: string
           id?: string
+          installments?: number | null
+          is_paid?: boolean | null
           is_recorrente?: boolean | null
+          is_subscription?: boolean | null
           nome_gasto: string
-          recorrencia_id?: string | null
+          purchase_date?: string | null
           tipo_transacao: string
+          total_amount?: number | null
+          transaction_group_id?: string | null
           user_id: string
           valor_gasto: number
         }
@@ -102,55 +142,16 @@ export type Database = {
           created_at?: string
           data_transacao?: string
           id?: string
+          installments?: number | null
+          is_paid?: boolean | null
           is_recorrente?: boolean | null
+          is_subscription?: boolean | null
           nome_gasto?: string
-          recorrencia_id?: string | null
+          purchase_date?: string | null
           tipo_transacao?: string
+          total_amount?: number | null
+          transaction_group_id?: string | null
           user_id?: string
-          valor_gasto?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transacoes_recorrencia_id_fkey"
-            columns: ["recorrencia_id"]
-            isOneToOne: false
-            referencedRelation: "recorrencias"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      transacoes_financeiras: {
-        Row: {
-          categoria: string | null
-          created_at: string | null
-          data_transacao: string | null
-          id: number
-          nome_gasto: string
-          session_id: string
-          tipo_gasto: string
-          updated_at: string | null
-          valor_gasto: number
-        }
-        Insert: {
-          categoria?: string | null
-          created_at?: string | null
-          data_transacao?: string | null
-          id?: number
-          nome_gasto: string
-          session_id: string
-          tipo_gasto: string
-          updated_at?: string | null
-          valor_gasto: number
-        }
-        Update: {
-          categoria?: string | null
-          created_at?: string | null
-          data_transacao?: string | null
-          id?: number
-          nome_gasto?: string
-          session_id?: string
-          tipo_gasto?: string
-          updated_at?: string | null
           valor_gasto?: number
         }
         Relationships: []

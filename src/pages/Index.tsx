@@ -1,11 +1,27 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { ChatInterface } from '@/components/ChatInterface';
 import { Dashboard } from '@/components/Dashboard';
 import { TransactionsList } from '@/components/TransactionsList';
 import { Navigation } from '@/components/Navigation';
+import CreditCardPage from '@/pages/CreditCard';
+import Settings from '@/pages/Settings';
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'transactions'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'transactions' | 'credit' | 'settings'>('chat');
+
+  // Escutar evento de navegação para crédito
+  useEffect(() => {
+    const handleNavigateToCredit = () => {
+      setActiveTab('credit');
+    };
+
+    window.addEventListener('navigate-to-credit', handleNavigateToCredit);
+    
+    return () => {
+      window.removeEventListener('navigate-to-credit', handleNavigateToCredit);
+    };
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -21,6 +37,18 @@ const Index = () => {
         return (
           <div className="h-full overflow-y-auto">
             <TransactionsList />
+          </div>
+        );
+      case 'credit':
+        return (
+          <div className="h-full overflow-y-auto">
+            <CreditCardPage />
+          </div>
+        );
+      case 'settings':
+        return (
+          <div className="h-full overflow-y-auto">
+            <Settings />
           </div>
         );
       default:

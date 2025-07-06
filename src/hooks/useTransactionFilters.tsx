@@ -1,21 +1,6 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-import { Transaction, Recurrence } from './useTransactions';
+import { useState, useMemo } from 'react';
 
-export interface TransactionFilters {
-  searchTerm: string;
-  categories: string[];
-  dateRange: {
-    start?: string;
-    end?: string;
-  };
-  showRecurrentOnly: boolean;
-  transactionType?: 'entrada' | 'gasto' | 'all';
-}
-
-// Extended type that normalizes the differences between Transaction and Recurrence
 export interface NormalizedTransaction {
   id: string;
   nome_gasto: string;
@@ -24,201 +9,78 @@ export interface NormalizedTransaction {
   categoria: string;
   data_transacao: string;
   isRecurrent: boolean;
-  created_at?: string;
+  created_at: string;
+  is_paid?: boolean;
 }
 
-export interface PaginatedTransactions {
-  transactions: NormalizedTransaction[];
-  total: number;
-  page: number;
-  totalPages: number;
+export interface TransactionFilters {
+  searchTerm: string;
+  selectedCategories: string[];
+  paymentStatus?: 'all' | 'paid' | 'unpaid';
 }
 
-export const useTransactionFilters = () => {
+export const useTransactionFilters = (transactions: NormalizedTransaction[]) => {
   const [filters, setFilters] = useState<TransactionFilters>({
     searchTerm: '',
-    categories: [],
-    dateRange: {},
-    showRecurrentOnly: false,
-    transactionType: 'all'
+    selectedCategories: [],
+    paymentStatus: 'all'
   });
-  
-  const [paginatedData, setPaginatedData] = useState<PaginatedTransactions>({
-    transactions: [],
-    total: 0,
-    page: 1,
-    totalPages: 0
-  });
-  
-  const [loading, setLoading] = useState(false);
-  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const { user } = useAuth();
 
-  const ITEMS_PER_PAGE = 20;
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(transaction => {
+      const matchesSearch = filters.searchTerm === '' || 
+        transaction.nome_gasto.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        transaction.categoria.toLowerCase().includes(filters.searchTerm.toLowerCase());
+      
+      const matchesCategory = filters.selectedCategories.length === 0 || 
+        filters.selectedCategories.includes(transaction.categoria);
+      
+      const matchesPaymentStatus = 
+        filters.paymentStatus === 'all' ||
+        (filters.paymentStatus === 'paid' && transaction.is_paid) ||
+        (filters.paymentStatus === 'unpaid' && !transaction.is_paid);
+      
+      return matchesSearch && matchesCategory && matchesPaymentStatus;
+    });
+  }, [transactions, filters]);
 
-  // Fetch available categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      if (!user) return;
+  // Separar por tipo e status de pagamento
+  const categorizedTransactions = useMemo(() => {
+    const entradas = filteredTransactions.filter(t => t.tipo_transacao === 'entrada');
+    const gastos = filteredTransactions.filter(t => t.tipo_transacao === 'gasto');
+    const recorrentes = filteredTransactions.filter(t => t.isRecurrent);
+    
+    // Separar gastos por status de pagamento
+    const gastosPagos = gastos.filter(t => t.is_paid);
+    const gastosNaoPagos = gastos.filter(t => !t.is_paid);
 
-      try {
-        const [transactionCategories, recurrenceCategories] = await Promise.all([
-          supabase
-            .from('transacoes')
-            .select('categoria')
-            .eq('user_id', user.id),
-          supabase
-            .from('recorrencias')
-            .select('categoria')
-            .eq('user_id', user.id)
-        ]);
-
-        const allCategories = new Set([
-          ...(transactionCategories.data?.map(t => t.categoria) || []),
-          ...(recurrenceCategories.data?.map(r => r.categoria) || [])
-        ]);
-
-        setAvailableCategories(Array.from(allCategories).sort());
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      }
+    return {
+      all: filteredTransactions,
+      entradas,
+      gastos,
+      gastosPagos,
+      gastosNaoPagos,
+      recorrentes
     };
-
-    fetchCategories();
-  }, [user]);
-
-  // Normalize transaction data to have consistent properties
-  const normalizeTransaction = (item: any): NormalizedTransaction => ({
-    id: item.id,
-    nome_gasto: item.nome_gasto,
-    valor_gasto: Number(item.valor_gasto),
-    tipo_transacao: item.tipo_transacao as 'entrada' | 'gasto',
-    categoria: item.categoria,
-    data_transacao: item.data_transacao,
-    isRecurrent: false,
-    created_at: item.created_at
-  });
-
-  // Normalize recurrence data to have consistent properties
-  const normalizeRecurrence = (item: any): NormalizedTransaction => ({
-    id: item.id,
-    nome_gasto: item.nome_recorrencia,
-    valor_gasto: Number(item.valor_recorrencia),
-    tipo_transacao: item.tipo_transacao as 'entrada' | 'gasto',
-    categoria: item.categoria,
-    data_transacao: item.data_inicio,
-    isRecurrent: true,
-    created_at: item.created_at
-  });
-
-  // Fetch filtered transactions
-  const fetchFilteredTransactions = async (page: number = 1) => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      let transactionsQuery = supabase
-        .from('transacoes')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id);
-
-      let recurrencesQuery = supabase
-        .from('recorrencias')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id);
-
-      // Apply filters
-      if (filters.searchTerm) {
-        transactionsQuery = transactionsQuery.ilike('nome_gasto', `%${filters.searchTerm}%`);
-        recurrencesQuery = recurrencesQuery.ilike('nome_recorrencia', `%${filters.searchTerm}%`);
-      }
-
-      if (filters.categories.length > 0) {
-        transactionsQuery = transactionsQuery.in('categoria', filters.categories);
-        recurrencesQuery = recurrencesQuery.in('categoria', filters.categories);
-      }
-
-      if (filters.transactionType && filters.transactionType !== 'all') {
-        transactionsQuery = transactionsQuery.eq('tipo_transacao', filters.transactionType);
-        recurrencesQuery = recurrencesQuery.eq('tipo_transacao', filters.transactionType);
-      }
-
-      if (filters.dateRange.start) {
-        transactionsQuery = transactionsQuery.gte('data_transacao', filters.dateRange.start);
-        recurrencesQuery = recurrencesQuery.gte('data_inicio', filters.dateRange.start);
-      }
-
-      if (filters.dateRange.end) {
-        transactionsQuery = transactionsQuery.lte('data_transacao', filters.dateRange.end);
-        recurrencesQuery = recurrencesQuery.lte('data_inicio', filters.dateRange.end);
-      }
-
-      let allTransactions: NormalizedTransaction[] = [];
-
-      if (!filters.showRecurrentOnly) {
-        const { data: transactions } = await transactionsQuery
-          .order('data_transacao', { ascending: false });
-        
-        if (transactions) {
-          allTransactions = [...allTransactions, ...transactions.map(normalizeTransaction)];
-        }
-      }
-
-      // Always fetch recurrences for "Recorrentes" tab or when showRecurrentOnly is true
-      if (filters.showRecurrentOnly || filters.transactionType === 'all') {
-        const { data: recurrences } = await recurrencesQuery
-          .order('data_inicio', { ascending: false });
-        
-        if (recurrences) {
-          allTransactions = [...allTransactions, ...recurrences.map(normalizeRecurrence)];
-        }
-      }
-
-      // Sort all transactions by date
-      allTransactions.sort((a, b) => 
-        new Date(b.data_transacao).getTime() - new Date(a.data_transacao).getTime()
-      );
-
-      // Apply pagination
-      const total = allTransactions.length;
-      const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
-      const startIndex = (page - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      const paginatedTransactions = allTransactions.slice(startIndex, endIndex);
-
-      setPaginatedData({
-        transactions: paginatedTransactions,
-        total,
-        page,
-        totalPages
-      });
-
-    } catch (error) {
-      console.error('Error fetching filtered transactions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFilteredTransactions(1);
-  }, [filters, user]);
+  }, [filteredTransactions]);
 
   const updateFilters = (newFilters: Partial<TransactionFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   };
 
-  const changePage = (newPage: number) => {
-    fetchFilteredTransactions(newPage);
+  const clearFilters = () => {
+    setFilters({
+      searchTerm: '',
+      selectedCategories: [],
+      paymentStatus: 'all'
+    });
   };
 
   return {
     filters,
     updateFilters,
-    paginatedData,
-    loading,
-    availableCategories,
-    changePage,
-    refetch: () => fetchFilteredTransactions(paginatedData.page)
+    clearFilters,
+    filteredTransactions,
+    categorizedTransactions
   };
 };

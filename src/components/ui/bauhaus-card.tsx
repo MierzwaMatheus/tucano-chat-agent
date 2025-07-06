@@ -1,110 +1,12 @@
-import React, { useEffect, useRef } from "react";
-import { ArrowUpCircle, ArrowDownCircle, Repeat, Pencil, Trash } from "lucide-react";
-import { Button } from "./button";
 
-const BAUHAUS_CARD_STYLES = `
-.bauhaus-card {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  min-height: 12rem;
-  display: grid;
-  place-content: center;
-  place-items: center;
-  text-align: center;
-  box-shadow: 1px 12px 25px rgb(0,0,0/20%);
-  border-radius: var(--card-radius, 20px);
-  border: var(--card-border-width, 2px) solid transparent;
-  --rotation: 4.2rad;
-  background-image:
-    linear-gradient(var(--card-bg), var(--card-bg)),
-    linear-gradient(calc(var(--rotation,4.2rad)), var(--card-accent) 0, var(--card-bg) 30%, transparent 80%);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  color: var(--card-text-main);
-  transition: all 0.3s ease;
-}
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Calendar, ArrowUpCircle, ArrowDownCircle, Repeat, Pencil, Trash2, CreditCard } from 'lucide-react';
+import { Button } from './button';
 
-.bauhaus-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 1px 15px 30px rgb(0,0,0/30%);
-}
-
-.bauhaus-card-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-}
-
-.bauhaus-date {
-  color: var(--card-text-top);
-  font-size: 0.875rem;
-}
-
-.bauhaus-card-body {
-  position: relative;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  padding: 3.5rem 1.5rem 1.5rem;
-}
-
-.bauhaus-card-body h3 {
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: var(--card-text-main);
-}
-
-.bauhaus-card-body p {
-  color: var(--card-text-sub);
-  font-size: 0.875rem;
-}
-
-.bauhaus-card-footer {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0 1.5rem 1rem;
-}
-
-.bauhaus-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.bauhaus-icon {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.bauhaus-amount {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-`;
-
-function injectBauhausCardStyles() {
-  if (typeof window === "undefined") return;
-  if (!document.getElementById("bauhaus-card-styles")) {
-    const style = document.createElement("style");
-    style.id = "bauhaus-card-styles";
-    style.innerHTML = BAUHAUS_CARD_STYLES;
-    document.head.appendChild(style);
-  }
-}
-
-export interface TransactionCardProps {
+interface TransactionCardProps {
   id: string;
   tipo_transacao: 'entrada' | 'gasto';
   nome_gasto: string;
@@ -112,8 +14,15 @@ export interface TransactionCardProps {
   valor_gasto: number;
   data_transacao: string;
   isRecurrent?: boolean;
-  onEdit?: (id: string) => void;
-  onDelete?: (id: string) => void;
+  is_paid?: boolean;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onPaymentToggle?: (id: string, isPaid: boolean) => void;
+  showCreditInfo?: boolean;
+  purchase_date?: string;
+  total_amount?: number;
+  installments?: number;
+  is_subscription?: boolean;
 }
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
@@ -123,34 +32,17 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   categoria,
   valor_gasto,
   data_transacao,
-  isRecurrent,
+  isRecurrent = false,
+  is_paid = false,
   onEdit,
-  onDelete
+  onDelete,
+  onPaymentToggle,
+  showCreditInfo = false,
+  purchase_date,
+  total_amount,
+  installments,
+  is_subscription
 }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    injectBauhausCardStyles();
-    const card = cardRef.current;
-    const handleMouseMove = (e: MouseEvent) => {
-      if (card) {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left - rect.width / 2;
-        const y = e.clientY - rect.top - rect.height / 2;
-        const angle = Math.atan2(-x, y);
-        card.style.setProperty("--rotation", angle + "rad");
-      }
-    };
-    if (card) {
-      card.addEventListener("mousemove", handleMouseMove);
-    }
-    return () => {
-      if (card) {
-        card.removeEventListener("mousemove", handleMouseMove);
-      }
-    };
-  }, []);
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -162,61 +54,134 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const getTransactionIcon = () => {
+  const getTransactionIcon = (tipo: 'entrada' | 'gasto', isRecurrent?: boolean) => {
     if (isRecurrent) {
-      return <Repeat className="h-5 w-5 text-blue-500" />;
+      return <Repeat className="h-4 w-4 text-blue-500" />;
     }
-    return tipo_transacao === 'entrada' 
-      ? <ArrowUpCircle className="h-5 w-5 text-green-500" />
-      : <ArrowDownCircle className="h-5 w-5 text-red-500" />;
+    return tipo === 'entrada' 
+      ? <ArrowUpCircle className="h-4 w-4 text-green-500" />
+      : <ArrowDownCircle className="h-4 w-4 text-red-500" />;
   };
 
-  const accentColor = tipo_transacao === 'entrada' ? '#22c55e' : '#ef4444';
+  const getCreditInfo = () => {
+    if (!showCreditInfo || !purchase_date) return null;
+
+    if (is_subscription) {
+      return "Assinatura";
+    }
+
+    if (installments && installments > 1) {
+      // Calcular qual parcela é esta baseada na data
+      const purchaseDate = new Date(purchase_date);
+      const transactionDate = new Date(data_transacao);
+      const monthsDiff = (transactionDate.getFullYear() - purchaseDate.getFullYear()) * 12 + 
+                        (transactionDate.getMonth() - purchaseDate.getMonth());
+      const currentInstallment = Math.max(1, monthsDiff + 1);
+      return `${currentInstallment}/${installments}`;
+    }
+
+    return "À vista";
+  };
 
   return (
-    <div
-      className="bauhaus-card"
-      ref={cardRef}
-      style={{
-        '--card-bg': 'hsl(var(--card))',
-        '--card-accent': accentColor,
-        '--card-text-main': 'hsl(var(--card-foreground))',
-        '--card-text-top': 'hsl(var(--muted-foreground))',
-        '--card-text-sub': 'hsl(var(--muted-foreground))',
-      } as React.CSSProperties}
-    >
-      <div className="bauhaus-card-header">
-        <div className="bauhaus-date">
-          {formatDate(data_transacao)}
+    <Card className={`glass border-white/20 backdrop-blur-lg hover:border-white/40 transition-all duration-300 group ${
+      tipo_transacao === 'gasto' && !is_paid ? 'border-orange-500/30' : ''
+    }`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            {getTransactionIcon(tipo_transacao, isRecurrent)}
+            <Badge 
+              variant="outline" 
+              className="text-xs border-white/30 text-gray-300"
+            >
+              {categoria}
+            </Badge>
+            {tipo_transacao === 'gasto' && !is_paid && (
+              <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-400">
+                Pendente
+              </Badge>
+            )}
+          </div>
+          
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(id)}
+              className="h-8 w-8 p-0 hover:bg-white/10"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(id)}
+              className="h-8 w-8 p-0 hover:bg-red-500/20 hover:text-red-400"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
-        <div className="bauhaus-actions">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onEdit?.(id)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete?.(id)}
-          >
-            <Trash className="h-4 w-4" />
-          </Button>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-white text-sm leading-tight">
+            {nome_gasto}
+          </h3>
+          
+          <div className="flex items-center justify-between">
+            <span className={`text-lg font-bold ${
+              tipo_transacao === 'entrada' ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {formatCurrency(valor_gasto)}
+            </span>
+            
+            {tipo_transacao === 'gasto' && onPaymentToggle && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">
+                  {is_paid ? 'Pago' : 'Pendente'}
+                </span>
+                <Switch
+                  checked={is_paid}
+                  onCheckedChange={(checked) => onPaymentToggle(id, checked)}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="text-xs text-gray-400 space-y-1">
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              <span>Pagamento: {formatDate(data_transacao)}</span>
+            </div>
+            
+            {showCreditInfo && purchase_date && (
+              <>
+                <div className="flex items-center gap-1">
+                  <CreditCard className="h-3 w-3" />
+                  <span>Compra: {formatDate(purchase_date)}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">{getCreditInfo()}</span>
+                  {total_amount && total_amount !== valor_gasto && (
+                    <span className="text-gray-300">
+                      Total: {formatCurrency(total_amount)}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+            
+            {isRecurrent && (
+              <div className="flex items-center gap-1">
+                <Repeat className="h-3 w-3" />
+                <span>Recorrente</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      
-      <div className="bauhaus-card-body">
-        <div className="bauhaus-icon">
-          {getTransactionIcon()}
-          <h3>{nome_gasto}</h3>
-        </div>
-        <p>{categoria}</p>
-        <div className="bauhaus-amount mt-4" style={{ color: accentColor }}>
-          {tipo_transacao === 'entrada' ? '+' : '-'}{formatCurrency(valor_gasto)}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
-}; 
+};
