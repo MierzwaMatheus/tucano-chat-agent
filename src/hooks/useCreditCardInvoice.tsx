@@ -71,9 +71,9 @@ export const useCreditCardInvoice = (selectedMonth: MonthYear) => {
         .select('*')
         .eq('user_id', user.id)
         .not('purchase_date', 'is', null)
-        .gte('purchase_date', invoiceStartDate.toISOString().split('T')[0])
-        .lte('purchase_date', invoiceEndDate.toISOString().split('T')[0])
-        .order('purchase_date', { ascending: false });
+        .gte('data_transacao', invoiceStartDate.toISOString().split('T')[0])
+        .lte('data_transacao', invoiceEndDate.toISOString().split('T')[0])
+        .order('data_transacao', { ascending: false });
 
       if (error) throw error;
 
