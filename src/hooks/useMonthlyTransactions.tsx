@@ -124,7 +124,7 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         unpaidCount: unpaidGastos.length
       });
 
-      // Buscar resumo do cartão de crédito se habilitado (apenas fatura atual)
+      // Buscar resumo do cartão de crédito se habilitado
       if (settings?.enabled) {
         const closingDay = settings.closing_day;
         const paymentDay = settings.payment_day;
@@ -150,6 +150,11 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
           invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
         }
 
+        console.log('Fetching credit card summary for period:', {
+          start: invoiceStartDate.toISOString().split('T')[0],
+          end: invoiceEndDate.toISOString().split('T')[0]
+        });
+
         const { data: creditTransactions, error: creditError } = await supabase
           .from('transacoes')
           .select('*')
@@ -159,6 +164,8 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
           .lte('data_transacao', invoiceEndDate.toISOString().split('T')[0]);
 
         if (creditError) throw creditError;
+
+        console.log('Found credit transactions for summary:', creditTransactions?.length || 0);
 
         if (creditTransactions && creditTransactions.length > 0) {
           const totalAmount = creditTransactions.reduce((sum, t) => sum + Number(t.valor_gasto), 0);
