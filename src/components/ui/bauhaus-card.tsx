@@ -1,6 +1,8 @@
+
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Calendar, ArrowUpCircle, ArrowDownCircle, Repeat, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { Button } from './button';
 
@@ -12,8 +14,10 @@ interface TransactionCardProps {
   valor_gasto: number;
   data_transacao: string;
   isRecurrent?: boolean;
+  is_paid?: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onPaymentToggle?: (id: string, isPaid: boolean) => void;
   showCreditInfo?: boolean;
   purchase_date?: string;
   total_amount?: number;
@@ -29,8 +33,10 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   valor_gasto,
   data_transacao,
   isRecurrent = false,
+  is_paid = false,
   onEdit,
   onDelete,
+  onPaymentToggle,
   showCreditInfo = false,
   purchase_date,
   total_amount,
@@ -78,7 +84,9 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   };
 
   return (
-    <Card className="glass border-white/20 backdrop-blur-lg hover:border-white/40 transition-all duration-300 group">
+    <Card className={`glass border-white/20 backdrop-blur-lg hover:border-white/40 transition-all duration-300 group ${
+      tipo_transacao === 'gasto' && !is_paid ? 'border-orange-500/30' : ''
+    }`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -89,6 +97,11 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
             >
               {categoria}
             </Badge>
+            {tipo_transacao === 'gasto' && !is_paid && (
+              <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-400">
+                Pendente
+              </Badge>
+            )}
           </div>
           
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -122,6 +135,18 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
             }`}>
               {formatCurrency(valor_gasto)}
             </span>
+            
+            {tipo_transacao === 'gasto' && onPaymentToggle && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">
+                  {is_paid ? 'Pago' : 'Pendente'}
+                </span>
+                <Switch
+                  checked={is_paid}
+                  onCheckedChange={(checked) => onPaymentToggle(id, checked)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="text-xs text-gray-400 space-y-1">

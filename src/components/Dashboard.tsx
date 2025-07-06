@@ -1,9 +1,12 @@
+
 import React, { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, DollarSign, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BentoGrid } from '@/components/ui/bento-grid';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useMonthlyTransactions } from '@/hooks/useMonthlyTransactions';
+import { useMonthSelector } from '@/hooks/useMonthSelector';
 import { AddTransactionModal } from './AddTransactionModal';
 import { MonthlyComparisonChart } from './charts/MonthlyComparisonChart';
 import { CategoryDistributionChart } from './charts/CategoryDistributionChart';
@@ -16,6 +19,10 @@ import { CreditCardSummary } from './CreditCardSummary';
 export const Dashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const { getTransactionSummary, getChartData, loading } = useTransactions();
+  
+  // Usar hook do mês atual para obter saldo pendente
+  const { selectedMonth } = useMonthSelector();
+  const { pendingBalance } = useMonthlyTransactions(selectedMonth);
   
   const { saldoAtual, totalEntradas, totalGastos } = getTransactionSummary();
   const chartData = getChartData();
@@ -72,9 +79,24 @@ export const Dashboard = () => {
             <div className={`text-4xl md:text-5xl font-bold mb-2 ${saldoAtual >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {formatCurrency(saldoAtual)}
             </div>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-gray-300 mb-3">
               Inclui transações recorrentes
             </p>
+            
+            {/* Saldo Pendente */}
+            {pendingBalance.totalPending > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                <AlertCircle className="h-4 w-4 text-orange-400" />
+                <div className="flex flex-col">
+                  <span className="text-sm text-orange-400 font-medium">
+                    Pendente: {formatCurrency(pendingBalance.totalPending)}
+                  </span>
+                  <span className="text-xs text-orange-300">
+                    {pendingBalance.unpaidCount} {pendingBalance.unpaidCount === 1 ? 'gasto não pago' : 'gastos não pagos'}
+                  </span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

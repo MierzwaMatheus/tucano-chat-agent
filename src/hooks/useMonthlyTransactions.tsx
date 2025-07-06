@@ -11,9 +11,15 @@ export interface CreditCardSummary {
   transactionCount: number;
 }
 
+export interface PendingBalance {
+  totalPending: number;
+  unpaidCount: number;
+}
+
 export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
   const [transactions, setTransactions] = useState<NormalizedTransaction[]>([]);
   const [creditCardSummary, setCreditCardSummary] = useState<CreditCardSummary | null>(null);
+  const [pendingBalance, setPendingBalance] = useState<PendingBalance>({ totalPending: 0, unpaidCount: 0 });
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { settings } = useCreditCardSettings();
@@ -22,6 +28,7 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
     if (!user) {
       setTransactions([]);
       setCreditCardSummary(null);
+      setPendingBalance({ totalPending: 0, unpaidCount: 0 });
       setLoading(false);
       return;
     }
@@ -51,10 +58,22 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         categoria: t.categoria,
         data_transacao: t.data_transacao,
         isRecurrent: t.is_recorrente || false,
-        created_at: t.created_at
+        created_at: t.created_at,
+        is_paid: t.is_paid || false
       }));
 
       setTransactions(normalizedTransactions);
+
+      // Calcular saldo pendente (apenas gastos não pagos)
+      const unpaidGastos = normalizedTransactions.filter(t => 
+        t.tipo_transacao === 'gasto' && !t.is_paid
+      );
+      
+      const totalPending = unpaidGastos.reduce((sum, t) => sum + t.valor_gasto, 0);
+      setPendingBalance({
+        totalPending,
+        unpaidCount: unpaidGastos.length
+      });
 
       // Buscar resumo do cartão de crédito se habilitado
       if (settings?.enabled) {
@@ -85,6 +104,7 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
       console.error('Error fetching monthly transactions:', error);
       setTransactions([]);
       setCreditCardSummary(null);
+      setPendingBalance({ totalPending: 0, unpaidCount: 0 });
     } finally {
       setLoading(false);
     }
@@ -97,6 +117,7 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
   return {
     transactions,
     creditCardSummary,
+    pendingBalance,
     loading,
     refetch: fetchMonthlyData,
   };

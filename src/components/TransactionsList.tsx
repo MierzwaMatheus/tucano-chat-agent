@@ -13,15 +13,14 @@ import { CreditCardSummaryCard } from '@/components/CreditCardSummaryCard';
 import { MonthSelector } from '@/components/MonthSelector';
 import { useMonthSelector } from '@/hooks/useMonthSelector';
 import { useMonthlyTransactions } from '@/hooks/useMonthlyTransactions';
-import { NormalizedTransaction } from '@/hooks/useTransactionFilters';
+import { useTransactionPayment } from '@/hooks/useTransactionPayment';
+import { useTransactionFilters, NormalizedTransaction } from '@/hooks/useTransactionFilters';
 
 export const TransactionsList = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<NormalizedTransaction | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const { 
     selectedMonth, 
@@ -36,36 +35,23 @@ export const TransactionsList = () => {
     refetch 
   } = useMonthlyTransactions(selectedMonth);
 
-  // Filtrar transações
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = searchTerm === '' || 
-      transaction.nome_gasto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.categoria.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = selectedCategories.length === 0 || 
-      selectedCategories.includes(transaction.categoria);
-    
-    return matchesSearch && matchesCategory;
-  });
+  const { updatePaymentStatus } = useTransactionPayment();
 
-  // Separar por tipo
-  const entradas = filteredTransactions.filter(t => t.tipo_transacao === 'entrada');
-  const gastos = filteredTransactions.filter(t => t.tipo_transacao === 'gasto');
-  const recorrentes = filteredTransactions.filter(t => t.isRecurrent);
+  const {
+    filters,
+    updateFilters,
+    clearFilters,
+    categorizedTransactions
+  } = useTransactionFilters(transactions);
 
   // Categorias disponíveis
   const availableCategories = Array.from(new Set(transactions.map(t => t.categoria)));
 
   const handleCategoryFilter = (category: string) => {
-    const updated = selectedCategories.includes(category)
-      ? selectedCategories.filter(c => c !== category)
-      : [...selectedCategories, category];
-    setSelectedCategories(updated);
-  };
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedCategories([]);
+    const updated = filters.selectedCategories.includes(category)
+      ? filters.selectedCategories.filter(c => c !== category)
+      : [...filters.selectedCategories, category];
+    updateFilters({ selectedCategories: updated });
   };
 
   const handleEdit = (id: string) => {
@@ -81,6 +67,13 @@ export const TransactionsList = () => {
     if (transaction) {
       setSelectedTransaction(transaction);
       setDeleteDialogOpen(true);
+    }
+  };
+
+  const handlePaymentToggle = async (id: string, isPaid: boolean) => {
+    const success = await updatePaymentStatus(id, isPaid);
+    if (success) {
+      refetch();
     }
   };
 
@@ -133,8 +126,8 @@ export const TransactionsList = () => {
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Buscar transações..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filters.searchTerm}
+                onChange={(e) => updateFilters({ searchTerm: e.target.value })}
                 className="pl-10 glass border-white/20"
               />
             </div>
@@ -148,7 +141,7 @@ export const TransactionsList = () => {
                 {availableCategories.map(category => (
                   <Badge
                     key={category}
-                    variant={selectedCategories.includes(category) ? "default" : "outline"}
+                    variant={filters.selectedCategories.includes(category) ? "default" : "outline"}
                     className="cursor-pointer hover:bg-tucano-500 hover:text-white transition-colors"
                     onClick={() => handleCategoryFilter(category)}
                   >
@@ -182,42 +175,68 @@ export const TransactionsList = () => {
           <TabsTrigger value="all">Todas</TabsTrigger>
           <TabsTrigger value="entradas">Entradas</TabsTrigger>
           <TabsTrigger value="gastos">Gastos</TabsTrigger>
+          <TabsTrigger value="gastos-pagos">Gastos Pagos</TabsTrigger>
+          <TabsTrigger value="gastos-nao-pagos">Gastos Não Pagos</TabsTrigger>
           <TabsTrigger value="recorrentes">Recorrentes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
           <TransactionGrid 
-            transactions={filteredTransactions}
+            transactions={categorizedTransactions.all}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onPaymentToggle={handlePaymentToggle}
           />
         </TabsContent>
 
         <TabsContent value="entradas" className="space-y-4">
           <TransactionGrid 
-            transactions={entradas}
+            transactions={categorizedTransactions.entradas}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onPaymentToggle={handlePaymentToggle}
           />
         </TabsContent>
 
         <TabsContent value="gastos" className="space-y-4">
           <TransactionGrid 
-            transactions={gastos}
+            transactions={categorizedTransactions.gastos}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onPaymentToggle={handlePaymentToggle}
+          />
+        </TabsContent>
+
+        <TabsContent value="gastos-pagos" className="space-y-4">
+          <TransactionGrid 
+            transactions={categorizedTransactions.gastosPagos}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onPaymentToggle={handlePaymentToggle}
+          />
+        </TabsContent>
+
+        <TabsContent value="gastos-nao-pagos" className="space-y-4">
+          <TransactionGrid 
+            transactions={categorizedTransactions.gastosNaoPagos}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onPaymentToggle={handlePaymentToggle}
           />
         </TabsContent>
 
         <TabsContent value="recorrentes" className="space-y-4">
           <TransactionGrid 
-            transactions={recorrentes}
+            transactions={categorizedTransactions.recorrentes}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onPaymentToggle={handlePaymentToggle}
           />
         </TabsContent>
       </Tabs>
@@ -246,6 +265,7 @@ interface TransactionGridProps {
   loading: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onPaymentToggle: (id: string, isPaid: boolean) => void;
 }
 
 const TransactionGrid: React.FC<TransactionGridProps> = ({
@@ -253,6 +273,7 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
   loading,
   onEdit,
   onDelete,
+  onPaymentToggle,
 }) => {
   if (loading) {
     return (
@@ -291,8 +312,10 @@ const TransactionGrid: React.FC<TransactionGridProps> = ({
           valor_gasto={transaction.valor_gasto}
           data_transacao={transaction.data_transacao}
           isRecurrent={transaction.isRecurrent}
+          is_paid={transaction.is_paid}
           onEdit={onEdit}
           onDelete={onDelete}
+          onPaymentToggle={onPaymentToggle}
         />
       ))}
     </div>
