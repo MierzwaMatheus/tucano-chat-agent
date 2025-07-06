@@ -88,11 +88,11 @@ export const useTransactionFilters = () => {
   }, [user]);
 
   // Normalize transaction data to have consistent properties
-  const normalizeTransaction = (item: Transaction): NormalizedTransaction => ({
+  const normalizeTransaction = (item: any): NormalizedTransaction => ({
     id: item.id,
     nome_gasto: item.nome_gasto,
-    valor_gasto: item.valor_gasto,
-    tipo_transacao: item.tipo_transacao,
+    valor_gasto: Number(item.valor_gasto),
+    tipo_transacao: item.tipo_transacao as 'entrada' | 'gasto',
     categoria: item.categoria,
     data_transacao: item.data_transacao,
     isRecurrent: false,
@@ -100,11 +100,11 @@ export const useTransactionFilters = () => {
   });
 
   // Normalize recurrence data to have consistent properties
-  const normalizeRecurrence = (item: Recurrence): NormalizedTransaction => ({
+  const normalizeRecurrence = (item: any): NormalizedTransaction => ({
     id: item.id,
     nome_gasto: item.nome_recorrencia,
-    valor_gasto: item.valor_recorrencia,
-    tipo_transacao: item.tipo_transacao,
+    valor_gasto: Number(item.valor_recorrencia),
+    tipo_transacao: item.tipo_transacao as 'entrada' | 'gasto',
     categoria: item.categoria,
     data_transacao: item.data_inicio,
     isRecurrent: true,
@@ -218,6 +218,7 @@ export const useTransactionFilters = () => {
     paginatedData,
     loading,
     availableCategories,
-    changePage
+    changePage,
+    refetch: () => fetchFilteredTransactions(paginatedData.page)
   };
 };
