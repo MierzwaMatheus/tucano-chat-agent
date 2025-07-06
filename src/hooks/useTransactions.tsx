@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -101,23 +100,24 @@ export const useTransactions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Helper function to check if a recurrence is active for a given month
-  const isRecurrenceActive = (recurrence: Recurrence, targetDate: Date): boolean => {
+  // Helper function to check if a recurrence should be included for current month only
+  const isRecurrenceActiveForCurrentMonth = (recurrence: Recurrence): boolean => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
     const startDate = new Date(recurrence.data_inicio);
     const endDate = recurrence.data_fim ? new Date(recurrence.data_fim) : null;
     
-    const targetMonth = targetDate.getMonth();
-    const targetYear = targetDate.getFullYear();
-    
-    // Check if recurrence started before or during target month
-    if (startDate.getFullYear() > targetYear || 
-        (startDate.getFullYear() === targetYear && startDate.getMonth() > targetMonth)) {
+    // Check if recurrence started before or during current month
+    if (startDate.getFullYear() > currentYear || 
+        (startDate.getFullYear() === currentYear && startDate.getMonth() > currentMonth)) {
       return false;
     }
     
-    // Check if recurrence ended before target month
-    if (endDate && (endDate.getFullYear() < targetYear || 
-        (endDate.getFullYear() === targetYear && endDate.getMonth() < targetMonth))) {
+    // Check if recurrence ended before current month
+    if (endDate && (endDate.getFullYear() < currentYear || 
+        (endDate.getFullYear() === currentYear && endDate.getMonth() < currentMonth))) {
       return false;
     }
     
@@ -211,7 +211,6 @@ export const useTransactions = () => {
   const getTransactionSummary = (): TransactionSummary => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    const currentDate = new Date(currentYear, currentMonth, 1);
 
     // Filter monthly transactions
     const monthlyTransactions = transactions.filter(transaction => {
@@ -229,9 +228,9 @@ export const useTransactions = () => {
       .filter(t => t.tipo_transacao === 'gasto')
       .reduce((sum, t) => sum + Number(t.valor_gasto), 0);
 
-    // Add active recurrences for the current month
+    // Add active recurrences for the current month only
     recurrences.forEach(recurrence => {
-      if (isRecurrenceActive(recurrence, currentDate)) {
+      if (isRecurrenceActiveForCurrentMonth(recurrence)) {
         const valor = Number(recurrence.valor_recorrencia);
         if (recurrence.tipo_transacao === 'entrada') {
           totalEntradas += valor;
@@ -275,14 +274,22 @@ export const useTransactions = () => {
         .filter(t => t.tipo_transacao === 'gasto')
         .reduce((sum, t) => sum + Number(t.valor_gasto), 0);
       
-      // Add recurrences for this month
+      // Add recurrences only if they were active during that specific month
       recurrences.forEach(recurrence => {
-        if (isRecurrenceActive(recurrence, targetDate)) {
-          const valor = Number(recurrence.valor_recorrencia);
-          if (recurrence.tipo_transacao === 'entrada') {
-            entradas += valor;
-          } else {
-            gastos += valor;
+        const startDate = new Date(recurrence.data_inicio);
+        const endDate = recurrence.data_fim ? new Date(recurrence.data_fim) : null;
+        
+        // Check if recurrence was active during the target month
+        if (startDate.getFullYear() <= year && 
+            (startDate.getFullYear() < year || startDate.getMonth() <= month)) {
+          if (!endDate || (endDate.getFullYear() >= year && 
+              (endDate.getFullYear() > year || endDate.getMonth() >= month))) {
+            const valor = Number(recurrence.valor_recorrencia);
+            if (recurrence.tipo_transacao === 'entrada') {
+              entradas += valor;
+            } else {
+              gastos += valor;
+            }
           }
         }
       });
@@ -315,7 +322,7 @@ export const useTransactions = () => {
     
     // Add active recurrences
     recurrences
-      .filter(r => r.tipo_transacao === 'gasto' && isRecurrenceActive(r, currentDate))
+      .filter(r => r.tipo_transacao === 'gasto' && isRecurrenceActiveForCurrentMonth(r))
       .forEach(r => {
         categoryTotals[r.categoria] = (categoryTotals[r.categoria] || 0) + Number(r.valor_recorrencia);
       });
@@ -351,13 +358,20 @@ export const useTransactions = () => {
       
       // Add recurrences for this month
       recurrences.forEach(recurrence => {
-        if (isRecurrenceActive(recurrence, targetDate)) {
-          const valor = Number(recurrence.valor_recorrencia);
-          if (recurrence.tipo_transacao === 'entrada') {
-            monthEntradas += valor;
-          } else {
-            monthGastos += valor;
-          }
+        const startDate = new Date(recurrence.data_inicio);
+        const endDate = recurrence.data_fim ? new Date(recurrence.data_fim) : null;
+        const recurrenceYear = startDate.getFullYear();
+        const recurrenceMonth = startDate.getMonth();
+
+        if (recurrenceYear <= year && recurrenceMonth <= month) {
+            if (!endDate || (endDate.getFullYear() >= year && endDate.getMonth() >= month)) {
+              const valor = Number(recurrence.valor_recorrencia);
+              if (recurrence.tipo_transacao === 'entrada') {
+                monthEntradas += valor;
+              } else {
+                monthGastos += valor;
+              }
+            }
         }
       });
       

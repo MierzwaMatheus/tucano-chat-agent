@@ -9,6 +9,7 @@ import { NormalizedTransaction } from './useTransactionFilters';
 export interface CreditCardSummary {
   totalAmount: number;
   transactionCount: number;
+  isPaid: boolean;
 }
 
 export interface PendingBalance {
@@ -23,6 +24,26 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { settings } = useCreditCardSettings();
+
+  // Helper function to check if a recurrence should be included for a given month
+  const shouldIncludeRecurrence = (recurrence: any, targetMonth: MonthYear): boolean => {
+    const startDate = new Date(recurrence.data_inicio);
+    const endDate = recurrence.data_fim ? new Date(recurrence.data_fim) : null;
+    
+    const targetDate = new Date(targetMonth.year, targetMonth.month, 1);
+    
+    // Check if recurrence started before or during target month
+    if (startDate > targetDate) {
+      return false;
+    }
+    
+    // Check if recurrence ended before target month
+    if (endDate && endDate < targetDate) {
+      return false;
+    }
+    
+    return true;
+  };
 
   const fetchMonthlyData = async () => {
     if (!user) {
@@ -42,12 +63,38 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         .from('transacoes')
         .select('*')
         .eq('user_id', user.id)
-        .is('purchase_date', null) // Apenas transações que NÃO são de crédito
+        .is('purchase_date', null)
         .gte('data_transacao', startDate.toISOString().split('T')[0])
         .lte('data_transacao', endDate.toISOString().split('T')[0])
         .order('data_transacao', { ascending: false });
 
       if (regularError) throw regularError;
+
+      // Buscar recorrências ativas
+      const { data: recurrences, error: recurrenceError } = await supabase
+        .from('recorrencias')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (recurrenceError) throw recurrenceError;
+
+      // Filtrar recorrências que devem aparecer no mês selecionado
+      const activeRecurrences = (recurrences || []).filter(rec => 
+        shouldIncludeRecurrence(rec, selectedMonth)
+      );
+
+      // Converter recorrências para formato de transação
+      const recurrenceTransactions: NormalizedTransaction[] = activeRecurrences.map(rec => ({
+        id: `recurrence-${rec.id}-${selectedMonth.month}-${selectedMonth.year}`,
+        nome_gasto: rec.nome_recorrencia,
+        valor_gasto: Number(rec.valor_recorrencia),
+        tipo_transacao: rec.tipo_transacao as 'entrada' | 'gasto',
+        categoria: rec.categoria,
+        data_transacao: new Date(selectedMonth.year, selectedMonth.month, new Date(rec.data_inicio).getDate()).toISOString().split('T')[0],
+        isRecurrent: true,
+        created_at: rec.created_at,
+        is_paid: rec.tipo_transacao === 'entrada' ? true : false
+      }));
 
       // Normalizar transações regulares
       const normalizedTransactions: NormalizedTransaction[] = (regularTransactions || []).map(t => ({
@@ -62,11 +109,13 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         is_paid: t.is_paid || false
       }));
 
-      setTransactions(normalizedTransactions);
+      // Combinar transações regulares com recorrências
+      const allTransactions = [...normalizedTransactions, ...recurrenceTransactions];
+      setTransactions(allTransactions);
 
-      // Calcular saldo pendente (apenas gastos não pagos)
-      const unpaidGastos = normalizedTransactions.filter(t => 
-        t.tipo_transacao === 'gasto' && !t.is_paid
+      // Calcular saldo pendente (apenas gastos não pagos, excluindo recorrências)
+      const unpaidGastos = allTransactions.filter(t => 
+        t.tipo_transacao === 'gasto' && !t.is_paid && !t.isRecurrent
       );
       
       const totalPending = unpaidGastos.reduce((sum, t) => sum + t.valor_gasto, 0);
@@ -75,23 +124,50 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         unpaidCount: unpaidGastos.length
       });
 
-      // Buscar resumo do cartão de crédito se habilitado
+      // Buscar resumo do cartão de crédito se habilitado (apenas fatura atual)
       if (settings?.enabled) {
+        const closingDay = settings.closing_day;
+        const paymentDay = settings.payment_day;
+        
+        let invoiceStartDate: Date;
+        let invoiceEndDate: Date;
+
+        const now = new Date();
+        const isCurrentMonth = selectedMonth.month === now.getMonth() && selectedMonth.year === now.getFullYear();
+        
+        if (isCurrentMonth) {
+          const currentDay = now.getDate();
+          
+          if (currentDay <= paymentDay) {
+            invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, closingDay + 1);
+            invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
+          } else {
+            invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month, closingDay + 1);
+            invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month + 1, closingDay);
+          }
+        } else {
+          invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, closingDay + 1);
+          invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
+        }
+
         const { data: creditTransactions, error: creditError } = await supabase
           .from('transacoes')
-          .select('valor_gasto')
+          .select('*')
           .eq('user_id', user.id)
-          .not('purchase_date', 'is', null) // Apenas transações de crédito
-          .gte('data_transacao', startDate.toISOString().split('T')[0])
-          .lte('data_transacao', endDate.toISOString().split('T')[0]);
+          .not('purchase_date', 'is', null)
+          .gte('purchase_date', invoiceStartDate.toISOString().split('T')[0])
+          .lte('purchase_date', invoiceEndDate.toISOString().split('T')[0]);
 
         if (creditError) throw creditError;
 
         if (creditTransactions && creditTransactions.length > 0) {
           const totalAmount = creditTransactions.reduce((sum, t) => sum + Number(t.valor_gasto), 0);
+          const isPaid = creditTransactions.every(t => t.is_paid);
+          
           setCreditCardSummary({
             totalAmount,
-            transactionCount: creditTransactions.length
+            transactionCount: creditTransactions.length,
+            isPaid
           });
         } else {
           setCreditCardSummary(null);
