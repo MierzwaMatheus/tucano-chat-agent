@@ -36,8 +36,38 @@ export const useTransactionPayment = () => {
     }
   };
 
+  const updateCreditCardInvoicePaymentStatus = async (transactionIds: string[], isPaid: boolean) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('transacoes')
+        .update({ is_paid: isPaid })
+        .in('id', transactionIds);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: `Fatura do cartão marcada como ${isPaid ? 'paga' : 'não paga'}`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error updating credit card invoice payment status:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar status de pagamento da fatura",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     updatePaymentStatus,
+    updateCreditCardInvoicePaymentStatus,
     loading,
   };
 };

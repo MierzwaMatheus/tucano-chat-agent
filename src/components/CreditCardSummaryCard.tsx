@@ -23,7 +23,7 @@ export const CreditCardSummaryCard: React.FC<CreditCardSummaryCardProps> = ({
   summary,
   onViewDetails,
 }) => {
-  const { updatePaymentStatus, loading } = useTransactionPayment();
+  const { updateCreditCardInvoicePaymentStatus, loading } = useTransactionPayment();
   const { selectedMonth } = useMonthSelector();
   const { transactions, refetch } = useCreditCardInvoice(selectedMonth);
 
@@ -36,13 +36,11 @@ export const CreditCardSummaryCard: React.FC<CreditCardSummaryCardProps> = ({
 
   const handlePaymentToggle = async (isPaid: boolean) => {
     // Atualizar todas as transações de crédito da fatura
-    const promises = transactions.map(transaction => 
-      updatePaymentStatus(transaction.id, isPaid)
-    );
-
-    const results = await Promise.all(promises);
+    const transactionIds = transactions.map(transaction => transaction.id);
     
-    if (results.every(result => result)) {
+    const success = await updateCreditCardInvoicePaymentStatus(transactionIds, isPaid);
+    
+    if (success) {
       refetch();
     }
   };
