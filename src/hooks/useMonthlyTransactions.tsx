@@ -126,7 +126,6 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
 
       // Buscar resumo do cartão de crédito se habilitado
       if (settings?.enabled) {
-        const closingDay = settings.closing_day;
         const paymentDay = settings.payment_day;
         
         // Calcular período da fatura que tem pagamento no mês selecionado
@@ -134,13 +133,13 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         let invoiceEndDate: Date;
 
         // A fatura que tem pagamento no mês selecionado
-        // Exemplo: se selecionamos julho (pagamento dia 10/07), queremos a fatura que fecha no mês anterior
+        // Exemplo: se selecionamos julho (pagamento dia 10/07), queremos compras de 11/06 até 10/07
         const paymentMonth = selectedMonth.month;
         const paymentYear = selectedMonth.year;
         
-        // Período da fatura: do dia seguinte ao fechamento do mês anterior até o dia do fechamento do mês atual
-        invoiceStartDate = new Date(paymentYear, paymentMonth - 1, closingDay + 1);
-        invoiceEndDate = new Date(paymentYear, paymentMonth, closingDay);
+        // Período da fatura: do dia seguinte ao pagamento do mês anterior até o dia do pagamento do mês atual
+        invoiceStartDate = new Date(paymentYear, paymentMonth - 1, paymentDay + 1);
+        invoiceEndDate = new Date(paymentYear, paymentMonth, paymentDay);
 
         console.log('Fetching credit card summary for period:', {
           start: invoiceStartDate.toISOString().split('T')[0],

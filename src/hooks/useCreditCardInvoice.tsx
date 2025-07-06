@@ -32,7 +32,6 @@ export const useCreditCardInvoice = (selectedMonth: MonthYear) => {
     }
 
     try {
-      const closingDay = settings.closing_day;
       const paymentDay = settings.payment_day;
       
       // Calcular período da fatura baseado no mês selecionado
@@ -47,18 +46,19 @@ export const useCreditCardInvoice = (selectedMonth: MonthYear) => {
         const currentDay = now.getDate();
         
         if (currentDay <= paymentDay) {
-          // Antes do pagamento - mostrar fatura atual
-          invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, closingDay + 1);
-          invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
+          // Antes do pagamento - mostrar fatura atual (do mês anterior até hoje)
+          invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, paymentDay + 1);
+          invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, paymentDay);
         } else {
-          // Depois do pagamento - mostrar próxima fatura
-          invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month, closingDay + 1);
-          invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month + 1, closingDay);
+          // Depois do pagamento - mostrar próxima fatura (de hoje até próximo pagamento)
+          invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month, paymentDay + 1);
+          invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month + 1, paymentDay);
         }
       } else {
-        // Mês específico selecionado - mostrar fatura daquele período
-        invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, closingDay + 1);
-        invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
+        // Mês específico selecionado - mostrar fatura que teve pagamento naquele mês
+        // Exemplo: se selecionamos julho, mostrar compras de 11/06 até 10/07
+        invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, paymentDay + 1);
+        invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, paymentDay);
       }
 
       console.log('Fetching credit transactions for period:', {
