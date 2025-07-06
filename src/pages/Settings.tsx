@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { CreditCardSettings } from '@/components/CreditCardSettings';
 
 const Settings = () => {
   return (
@@ -13,7 +12,12 @@ const Settings = () => {
           </p>
         </div>
 
-        <CreditCardSettings />
+        <div className="text-center py-12">
+          <p className="text-gray-300 text-lg">Configurações gerais do sistema</p>
+          <p className="text-gray-400 text-sm mt-2">
+            Outras configurações aparecerão aqui no futuro
+          </p>
+        </div>
       </div>
     </div>
   );
