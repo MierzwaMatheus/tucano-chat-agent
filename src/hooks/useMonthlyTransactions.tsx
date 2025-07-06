@@ -129,30 +129,24 @@ export const useMonthlyTransactions = (selectedMonth: MonthYear) => {
         const closingDay = settings.closing_day;
         const paymentDay = settings.payment_day;
         
+        // Calcular período da fatura que tem pagamento no mês selecionado
         let invoiceStartDate: Date;
         let invoiceEndDate: Date;
 
-        const now = new Date();
-        const isCurrentMonth = selectedMonth.month === now.getMonth() && selectedMonth.year === now.getFullYear();
+        // A fatura que tem pagamento no mês selecionado
+        // Exemplo: se selecionamos julho (pagamento dia 10/07), queremos a fatura que fecha no mês anterior
+        const paymentMonth = selectedMonth.month;
+        const paymentYear = selectedMonth.year;
         
-        if (isCurrentMonth) {
-          const currentDay = now.getDate();
-          
-          if (currentDay <= paymentDay) {
-            invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, closingDay + 1);
-            invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
-          } else {
-            invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month, closingDay + 1);
-            invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month + 1, closingDay);
-          }
-        } else {
-          invoiceStartDate = new Date(selectedMonth.year, selectedMonth.month - 1, closingDay + 1);
-          invoiceEndDate = new Date(selectedMonth.year, selectedMonth.month, closingDay);
-        }
+        // Período da fatura: do dia seguinte ao fechamento do mês anterior até o dia do fechamento do mês atual
+        invoiceStartDate = new Date(paymentYear, paymentMonth - 1, closingDay + 1);
+        invoiceEndDate = new Date(paymentYear, paymentMonth, closingDay);
 
         console.log('Fetching credit card summary for period:', {
           start: invoiceStartDate.toISOString().split('T')[0],
-          end: invoiceEndDate.toISOString().split('T')[0]
+          end: invoiceEndDate.toISOString().split('T')[0],
+          paymentMonth: paymentMonth + 1, // +1 porque getMonth() retorna 0-11
+          paymentYear: paymentYear
         });
 
         const { data: creditTransactions, error: creditError } = await supabase
