@@ -7,9 +7,9 @@ import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import { TransactionCard } from '@/components/ui/bauhaus-card';
 import { EditTransactionModal } from '@/components/EditTransactionModal';
 import { DeleteTransactionDialog } from '@/components/DeleteTransactionDialog';
-import { CreditCard, Settings } from 'lucide-react';
+import { CreditCard as CreditCardIcon, Settings } from 'lucide-react';
 
-const CreditCard = () => {
+const CreditCardPage = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
@@ -58,7 +58,7 @@ const CreditCard = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-            <CreditCard className="h-8 w-8" />
+            <CreditCardIcon className="h-8 w-8" />
             Cartão de Crédito
           </h1>
           <p className="text-gray-300">
@@ -67,9 +67,9 @@ const CreditCard = () => {
         </div>
 
         <Tabs defaultValue="transactions" className="space-y-6">
-          <TabsList className="glass border-white/20 backdrop-blur-lg">
+          <TabsList>
             <TabsTrigger value="transactions" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
+              <CreditCardIcon className="h-4 w-4" />
               Transações
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
@@ -149,4 +149,4 @@ const CreditCard = () => {
   );
 };
 
-export default CreditCard;
+export default CreditCardPage;

@@ -4,7 +4,7 @@ import { ChatInterface } from '@/components/ChatInterface';
 import { Dashboard } from '@/components/Dashboard';
 import { TransactionsList } from '@/components/TransactionsList';
 import { Navigation } from '@/components/Navigation';
-import CreditCard from '@/pages/CreditCard';
+import CreditCardPage from '@/pages/CreditCard';
 import Settings from '@/pages/Settings';
 
 const Index = () => {
@@ -29,7 +29,7 @@ const Index = () => {
       case 'credit':
         return (
           <div className="h-full overflow-y-auto">
-            <CreditCard />
+            <CreditCardPage />
           </div>
         );
       case 'settings':
